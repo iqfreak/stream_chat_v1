@@ -1,0 +1,250 @@
+﻿import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:timeago/timeago.dart' as timeago;
+import '../../services/mock_data.dart';
+import '../../theme/app_theme.dart';
+import '../../widgets/bottom_nav_scaffold.dart';
+import '../../widgets/user_avatar.dart';
+
+class NotificationsScreen extends StatelessWidget {
+  const NotificationsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final data = context.watch<MockDataService>();
+    final notifications = data.notifications;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final unreadCount = data.unreadNotificationCount;
+
+    return BottomNavScaffold(
+      selectedIndex: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Notifications'),
+          actions: [
+            if (unreadCount > 0)
+              TextButton(
+                onPressed: data.markAllNotificationsRead,
+                child: const Text(
+                  'Mark all read',
+                  style: TextStyle(
+                      color: AppColors.primary, fontWeight: FontWeight.w600),
+                ),
+              ),
+          ],
+        ),
+        body: notifications.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.notifications_none,
+                        size: 72,
+                        color: isDark
+                            ? AppColors.textDarkSecondary.withValues(alpha: 0.5)
+                            : AppColors.textLightSecondary.withValues(alpha: 0.4)),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No notifications yet',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: isDark
+                                ? AppColors.textDarkSecondary
+                                : AppColors.textLightSecondary,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'You\'ll see @mentions and alerts here',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark
+                            ? AppColors.textDarkSecondary.withValues(alpha: 0.7)
+                            : AppColors.textLightSecondary.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : ListView.separated(
+                itemCount: notifications.length,
+                separatorBuilder: (context, index) => Divider(
+                  height: 0,
+                  color: isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB),
+                ),
+                itemBuilder: (context, i) {
+                  final notif = notifications[i];
+                  final sender = data.userById(notif.fromUserId);
+                  final channel = data.channelById(notif.channelId);
+                  return _NotifTile(
+                    notification: notif,
+                    sender: sender,
+                    channelName: channel?.name ?? 'Unknown',
+                    isDark: isDark,
+                    onTap: () {
+                      data.markNotificationRead(notif.id);
+                      context.push('/channels/${notif.channelId}/chat');
+                    },
+                  );
+                },
+              ),
+      ),
+    );
+  }
+}
+
+class _NotifTile extends StatelessWidget {
+  final MockNotification notification;
+  final MockUser? sender;
+  final String channelName;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _NotifTile({
+    required this.notification,
+    required this.sender,
+    required this.channelName,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isUnread = !notification.isRead;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        color: isUnread
+            ? (isDark
+                ? AppColors.primary.withValues(alpha: 0.06)
+                : AppColors.primary.withValues(alpha: 0.04))
+            : null,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                UserAvatar(
+                  name: sender?.name ?? '?',
+                  avatarUrl: sender?.avatarUrl,
+                  size: 48,
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        width: 2,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.alternate_email,
+                      color: Colors.white,
+                      size: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: sender?.name ?? 'Someone',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark
+                                      ? AppColors.textDark
+                                      : AppColors.textLight,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              TextSpan(
+                                text: ' mentioned you in ',
+                                style: TextStyle(
+                                  color: isDark
+                                      ? AppColors.textDarkSecondary
+                                      : AppColors.textLightSecondary,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              TextSpan(
+                                text: channelName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (isUnread)
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.darkCard
+                          : const Color(0xFFF5F6FA),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      notification.text,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark
+                            ? AppColors.textDarkSecondary
+                            : AppColors.textLightSecondary,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    timeago.format(notification.createdAt, allowFromNow: true),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark
+                          ? AppColors.textDarkSecondary.withValues(alpha: 0.7)
+                          : AppColors.textLightSecondary.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

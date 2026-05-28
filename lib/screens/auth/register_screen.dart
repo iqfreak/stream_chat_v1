@@ -1,5 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
 import '../../services/mock_data.dart';
@@ -20,6 +22,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmCtrl = TextEditingController();
   bool _obscure = true;
   bool _loading = false;
+  XFile? _pickedImage;
+
+  final _picker = ImagePicker();
 
   @override
   void dispose() {
@@ -30,6 +35,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  Future<void> _pickProfileImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from Gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take a Photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+    final file = await _picker.pickImage(source: source, imageQuality: 80);
+    if (file == null || !mounted) return;
+    setState(() => _pickedImage = file);
+  }
+
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
@@ -38,6 +70,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     context.read<MockDataService>().register(
           _nameCtrl.text.trim(),
           _emailCtrl.text.trim(),
+          avatarPath: _pickedImage?.path,
         );
     context.read<AppState>().signIn();
     context.go('/channels');
@@ -80,39 +113,50 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
-                // Avatar placeholder
+                // Avatar picker
                 Center(
-                  child: Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 44,
-                        backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-                        child: const Icon(
-                          Icons.person,
-                          size: 48,
-                          color: AppColors.primary,
+                  child: GestureDetector(
+                    onTap: _pickProfileImage,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 44,
+                          backgroundColor:
+                              AppColors.primary.withValues(alpha: 0.15),
+                          backgroundImage: _pickedImage != null
+                              ? FileImage(File(_pickedImage!.path))
+                              : null,
+                          child: _pickedImage == null
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 48,
+                                  color: AppColors.primary,
+                                )
+                              : null,
                         ),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.camera_alt,
+                                color: Colors.white, size: 14),
                           ),
-                          child: const Icon(Icons.camera_alt,
-                              color: Colors.white, size: 14),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 Center(
                   child: TextButton(
-                    onPressed: () {},
-                    child: const Text('Add photo (optional)'),
+                    onPressed: _pickProfileImage,
+                    child: Text(_pickedImage == null
+                        ? 'Add photo (optional)'
+                        : 'Change photo'),
                   ),
                 ),
                 const SizedBox(height: 16),

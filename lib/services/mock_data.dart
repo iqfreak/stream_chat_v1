@@ -710,4 +710,8 @@ class MockDataService extends ChangeNotifier {
     ch.name = newName;
     notifyListeners();
   }
+
+  /// Alias kept for call-site compatibility with channel_info_screen.
+  void renameChannel(String channelId, String newName) =>
+      updateChannelName(channelId, newName);
 }

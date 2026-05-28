@@ -25,7 +25,7 @@ class ChannelInfoScreen extends StatelessWidget {
 
     final members = channel.memberIds
         .map((id) => data.userById(id))
-        .whereType<MockUser>()
+        .whereType<AppUser>()
         .toList();
 
     final pinnedMessages = channel.messages.where((m) => m.isPinned).toList();
@@ -330,7 +330,7 @@ class ChannelInfoScreen extends StatelessWidget {
   }
 
   void _showAddMemberSheet(
-      BuildContext context, StreamChatService data, MockChannel channel) {
+      BuildContext context, StreamChatService data, AppChannel channel) {
     final nonMembers = data.allUsers
         .where((u) => !channel.memberIds.contains(u.id))
         .toList();

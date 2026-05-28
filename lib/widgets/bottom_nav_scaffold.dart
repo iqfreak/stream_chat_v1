@@ -4,13 +4,17 @@ import 'package:provider/provider.dart';
 import '../services/stream_chat_service.dart';
 
 class BottomNavScaffold extends StatelessWidget {
-  final Widget child;
+  final PreferredSizeWidget? appBar;
+  final Widget body;
   final int selectedIndex;
+  final Widget? floatingActionButton;
 
   const BottomNavScaffold({
     super.key,
-    required this.child,
+    required this.body,
     required this.selectedIndex,
+    this.appBar,
+    this.floatingActionButton,
   });
 
   void _onTap(BuildContext context, int index) {
@@ -32,7 +36,9 @@ class BottomNavScaffold extends StatelessWidget {
     final unread = data.unreadNotificationCount;
 
     return Scaffold(
-      body: child,
+      appBar: appBar,
+      body: body,
+      floatingActionButton: floatingActionButton,
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: (i) => _onTap(context, i),

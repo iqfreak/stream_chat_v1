@@ -7,25 +7,25 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stream_chat_flutter_core/stream_chat_flutter_core.dart';
 import '../config/stream_config.dart';
-import 'mock_data.dart';
+import 'models.dart';
 
-export 'mock_data.dart'
+export 'models.dart'
     show
-        MockUser,
-        MockChannel,
-        MockMessage,
-        MockAttachment,
-        MockNotification,
-        MockReaction;
+        AppUser,
+        AppChannel,
+        AppMessage,
+        AppAttachment,
+        AppNotification,
+        AppReaction;
 
 class StreamChatService extends ChangeNotifier {
   final StreamChatClient _client;
 
-  MockUser? _currentUser;
-  final List<MockChannel> _channels = [];
-  final List<MockNotification> _notifications = [];
+  AppUser? _currentUser;
+  final List<AppChannel> _channels = [];
+  final List<AppNotification> _notifications = [];
   final Map<String, Channel> _streamChannels = {};
-  final Map<String, MockUser> _cachedUsers = {};
+  final Map<String, AppUser> _cachedUsers = {};
   StreamSubscription<Event>? _eventSub;
 
   StreamChatService()
@@ -34,23 +34,23 @@ class StreamChatService extends ChangeNotifier {
   StreamChatClient get client => _client;
   bool get isConnected => _client.state.currentUser != null;
 
-  MockUser get currentUser => _currentUser!;
+  AppUser get currentUser => _currentUser!;
 
-  List<MockChannel> get myChannels => List.unmodifiable(_channels);
-  List<MockChannel> get channels => List.unmodifiable(_channels);
-  List<MockUser> get allUsers => _cachedUsers.values.toList();
-  List<MockUser> get otherUsers => _cachedUsers.values
+  List<AppChannel> get myChannels => List.unmodifiable(_channels);
+  List<AppChannel> get channels => List.unmodifiable(_channels);
+  List<AppUser> get allUsers => _cachedUsers.values.toList();
+  List<AppUser> get otherUsers => _cachedUsers.values
       .where((u) => u.id != _currentUser?.id)
       .toList();
 
-  List<MockNotification> get notifications =>
+  List<AppNotification> get notifications =>
       List.unmodifiable(_notifications.reversed.toList());
   int get unreadNotificationCount =>
       _notifications.where((n) => !n.isRead).length;
 
-  MockUser? userById(String id) => _cachedUsers[id];
+  AppUser? userById(String id) => _cachedUsers[id];
 
-  MockChannel? channelById(String id) {
+  AppChannel? channelById(String id) {
     try {
       return _channels.firstWhere((c) => c.id == id);
     } catch (_) {
@@ -162,7 +162,7 @@ class StreamChatService extends ChangeNotifier {
       token,
     );
 
-    _currentUser = MockUser(
+    _currentUser = AppUser(
       id: userId,
       name: name,
       email: email,
@@ -191,7 +191,7 @@ class StreamChatService extends ChangeNotifier {
     for (final ch in channelList) {
       await ch.watch();
       _streamChannels[ch.id!] = ch;
-      _channels.add(_toMock(ch));
+      _channels.add(_toAppChannel(ch));
       _cacheMembers(ch);
     }
   }
@@ -204,7 +204,7 @@ class StreamChatService extends ChangeNotifier {
         pagination: const PaginationParams(limit: 100),
       );
       for (final u in response.users) {
-        _cachedUsers[u.id] = _streamUserToMock(u);
+        _cachedUsers[u.id] = _toAppUser(u);
       }
     } catch (_) {}
   }
@@ -253,8 +253,8 @@ class StreamChatService extends ChangeNotifier {
 
     if (type == 'user.presence.changed') {
       final u = event.user;
-      if (u != null) _cachedUsers[u.id] = _streamUserToMock(u);
-      for (final ch in List<MockChannel>.from(_channels)) {
+      if (u != null) _cachedUsers[u.id] = _toAppUser(u);
+      for (final ch in List<AppChannel>.from(_channels)) {
         if (ch.memberIds.contains(u?.id)) _refreshChannelById(ch.id);
       }
       notifyListeners();
@@ -271,7 +271,7 @@ class StreamChatService extends ChangeNotifier {
     final ch = _streamChannels[id];
     if (ch == null) return;
     final idx = _channels.indexWhere((c) => c.id == id);
-    final updated = _toMock(ch);
+    final updated = _toAppChannel(ch);
     if (idx >= 0) {
       _channels[idx] = updated;
     } else {
@@ -290,7 +290,7 @@ class StreamChatService extends ChangeNotifier {
       final ch = _client.channel('messaging', id: id);
       await ch.watch();
       _streamChannels[id] = ch;
-      _channels.insert(0, _toMock(ch));
+      _channels.insert(0, _toAppChannel(ch));
       _cacheMembers(ch);
     }
 
@@ -309,7 +309,7 @@ class StreamChatService extends ChangeNotifier {
     final notifId = 'notif_${msg.id}';
     if (_notifications.any((n) => n.id == notifId)) return;
 
-    _notifications.add(MockNotification(
+    _notifications.add(AppNotification(
       id: notifId,
       fromUserId: msg.user?.id ?? '',
       channelId: channelId,
@@ -366,7 +366,7 @@ class StreamChatService extends ChangeNotifier {
     final channelId = ch.id!;
     _streamChannels[channelId] = ch;
     _channels.removeWhere((c) => c.id == channelId);
-    _channels.insert(0, _toMock(ch));
+    _channels.insert(0, _toAppChannel(ch));
     _cacheMembers(ch);
     notifyListeners();
     return channelId;
@@ -398,7 +398,7 @@ class StreamChatService extends ChangeNotifier {
     final idx = _channels.indexWhere((c) => c.id == channelId);
     if (idx >= 0) {
       final old = _channels[idx];
-      _channels[idx] = MockChannel(
+      _channels[idx] = AppChannel(
         id: old.id,
         name: old.name,
         isGroup: old.isGroup,
@@ -440,7 +440,7 @@ class StreamChatService extends ChangeNotifier {
   Future<void> sendMessageWithAttachment(
     String channelId,
     String text,
-    List<MockAttachment> attachments,
+    List<AppAttachment> attachments,
   ) async {
     final ch = _streamChannels[channelId];
     if (ch == null) return;
@@ -466,12 +466,12 @@ class StreamChatService extends ChangeNotifier {
     );
   }
 
-  Future<List<MockMessage>> getThreadReplies(
+  Future<List<AppMessage>> getThreadReplies(
       String channelId, String parentId) async {
     final ch = _streamChannels[channelId];
     if (ch == null) return [];
     final response = await ch.getReplies(parentId);
-    return response.messages.map(_msgToMock).toList();
+    return response.messages.map(_toAppMessage).toList();
   }
 
   Future<void> toggleReaction(
@@ -522,7 +522,7 @@ class StreamChatService extends ChangeNotifier {
     final idx = _notifications.indexWhere((n) => n.id == notifId);
     if (idx >= 0) {
       final old = _notifications[idx];
-      _notifications[idx] = MockNotification(
+      _notifications[idx] = AppNotification(
         id: old.id,
         fromUserId: old.fromUserId,
         channelId: old.channelId,
@@ -538,7 +538,7 @@ class StreamChatService extends ChangeNotifier {
   void markAllNotificationsRead() {
     for (var i = 0; i < _notifications.length; i++) {
       final old = _notifications[i];
-      _notifications[i] = MockNotification(
+      _notifications[i] = AppNotification(
         id: old.id,
         fromUserId: old.fromUserId,
         channelId: old.channelId,
@@ -553,7 +553,7 @@ class StreamChatService extends ChangeNotifier {
 
   // ─── Search ───────────────────────────────────────────────────────────────
 
-  Future<List<({MockMessage message, MockChannel channel})>> searchMessages(
+  Future<List<({AppMessage message, AppChannel channel})>> searchMessages(
       String query) async {
     if (query.trim().isEmpty) return [];
     try {
@@ -564,13 +564,13 @@ class StreamChatService extends ChangeNotifier {
         paginationParams: const PaginationParams(limit: 25),
       );
 
-      final results = <({MockMessage message, MockChannel channel})>[];
+      final results = <({AppMessage message, AppChannel channel})>[];
       for (final r in response.results) {
         final streamMsg = r.message;
         final channelId = r.channel?.id ?? '';
         final mock = channelById(channelId);
         if (mock == null) continue;
-        results.add((message: _msgToMock(streamMsg), channel: mock));
+        results.add((message: _toAppMessage(streamMsg), channel: mock));
       }
       return results;
     } catch (_) {
@@ -602,7 +602,7 @@ class StreamChatService extends ChangeNotifier {
     }
     await prefs.setString('sc_users', jsonEncode(users));
 
-    _currentUser = MockUser(
+    _currentUser = AppUser(
       id: userId,
       name: newName,
       email: newEmail,
@@ -635,7 +635,7 @@ class StreamChatService extends ChangeNotifier {
     }
     await prefs.setString('sc_users', jsonEncode(users));
 
-    _currentUser = MockUser(
+    _currentUser = AppUser(
       id: userId,
       name: _currentUser!.name,
       email: _currentUser!.email,
@@ -651,11 +651,11 @@ class StreamChatService extends ChangeNotifier {
   void _cacheMembers(Channel ch) {
     for (final m in ch.state?.members ?? <Member>[]) {
       final u = m.user;
-      if (u != null) _cachedUsers[u.id] = _streamUserToMock(u);
+      if (u != null) _cachedUsers[u.id] = _toAppUser(u);
     }
   }
 
-  MockUser _streamUserToMock(User u) => MockUser(
+  AppUser _toAppUser(User u) => AppUser(
         id: u.id,
         name: u.name,
         email: (u.extraData['email'] as String?) ?? '',
@@ -663,7 +663,7 @@ class StreamChatService extends ChangeNotifier {
         isOnline: u.online,
       );
 
-  MockChannel _toMock(Channel ch) {
+  AppChannel _toAppChannel(Channel ch) {
     final state = ch.state;
     final isGroup = (ch.extraData['is_group'] as bool?) ?? false;
     final memberIds = (state?.members ?? <Member>[])
@@ -685,10 +685,10 @@ class StreamChatService extends ChangeNotifier {
 
     final messages = (state?.messages ?? <Message>[])
         .where((m) => m.parentId == null)
-        .map(_msgToMock)
+        .map(_toAppMessage)
         .toList();
 
-    return MockChannel(
+    return AppChannel(
       id: ch.id!,
       name: name,
       isGroup: isGroup,
@@ -698,7 +698,7 @@ class StreamChatService extends ChangeNotifier {
     );
   }
 
-  MockMessage _msgToMock(Message m) {
+  AppMessage _toAppMessage(Message m) {
     final isDeleted = m.deletedAt != null || m.type == 'deleted';
     final text = m.text ?? '';
     final wasEdited =
@@ -708,16 +708,16 @@ class StreamChatService extends ChangeNotifier {
 
     final attachments = m.attachments.map((a) {
       final url = a.assetUrl ?? a.imageUrl ?? a.thumbUrl ?? '';
-      return MockAttachment(
+      return AppAttachment(
         type: a.type ?? 'file',
         name: a.title ?? 'file',
         url: url,
       );
     }).toList();
 
-    final replyPlaceholders = List<MockMessage>.generate(
+    final replyPlaceholders = List<AppMessage>.generate(
       m.replyCount ?? 0,
-      (i) => MockMessage(
+      (i) => AppMessage(
         id: '__placeholder_$i',
         senderId: '',
         text: '',
@@ -725,7 +725,7 @@ class StreamChatService extends ChangeNotifier {
       ),
     );
 
-    return MockMessage(
+    return AppMessage(
       id: m.id,
       senderId: m.user?.id ?? '',
       text: text,
@@ -740,13 +740,13 @@ class StreamChatService extends ChangeNotifier {
     );
   }
 
-  List<MockReaction> _groupReactions(List<Reaction> reactions) {
+  List<AppReaction> _groupReactions(List<Reaction> reactions) {
     final grouped = <String, List<String>>{};
     for (final r in reactions) {
       grouped.putIfAbsent(r.type, () => []).add(r.userId ?? '');
     }
     return grouped.entries
-        .map((e) => MockReaction(emoji: e.key, userIds: e.value))
+        .map((e) => AppReaction(emoji: e.key, userIds: e.value))
         .toList();
   }
 

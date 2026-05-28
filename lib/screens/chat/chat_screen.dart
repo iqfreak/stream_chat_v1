@@ -109,12 +109,12 @@ class _ChatScreenState extends State<ChatScreen> {
     context.read<StreamChatService>().sendMessageWithAttachment(
       widget.channelId,
       '',
-      [MockAttachment(type: 'image', name: file.name, url: file.path)],
+      [AppAttachment(type: 'image', name: file.name, url: file.path)],
     );
     Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
   }
 
-  void _showActionSheet(MockMessage msg) {
+  void _showActionSheet(AppMessage msg) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -143,12 +143,12 @@ class _ChatScreenState extends State<ChatScreen> {
     final isMember = channel.memberIds.contains(me.id);
 
     // For DMs, find the other user for the AppBar title & online status
-    MockUser? otherUser;
+    AppUser? otherUser;
     if (!channel.isGroup) {
       otherUser = channel.memberIds
           .where((id) => id != me.id)
           .map((id) => data.userById(id))
-          .whereType<MockUser>()
+          .whereType<AppUser>()
           .firstOrNull;
     }
 
@@ -449,9 +449,9 @@ class _ChatScreenState extends State<ChatScreen> {
 // ─── Message Bubble ──────────────────────────────────────────────────────────
 
 class _MessageBubble extends StatelessWidget {
-  final MockMessage message;
+  final AppMessage message;
   final bool isMine;
-  final MockUser? sender;
+  final AppUser? sender;
   final bool showHeader;
   final bool isDark;
   final String channelId;
@@ -675,7 +675,7 @@ class _MessageBubble extends StatelessWidget {
 // ─── Image Attachment ────────────────────────────────────────────────────────
 
 class _ImageAttachment extends StatelessWidget {
-  final MockAttachment attachment;
+  final AppAttachment attachment;
   final bool isDark;
   const _ImageAttachment({required this.attachment, required this.isDark});
 
@@ -732,7 +732,7 @@ class _BrokenImage extends StatelessWidget {
 // ─── Reactions Row ───────────────────────────────────────────────────────────
 
 class _ReactionsRow extends StatelessWidget {
-  final MockMessage message;
+  final AppMessage message;
   final String channelId;
 
   const _ReactionsRow({required this.message, required this.channelId});

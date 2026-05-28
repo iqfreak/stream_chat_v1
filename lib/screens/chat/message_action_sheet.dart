@@ -6,7 +6,7 @@ import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 
 class MessageActionSheet extends StatelessWidget {
-  final MockMessage message;
+  final AppMessage message;
   final String channelId;
 
   const MessageActionSheet({
@@ -227,7 +227,7 @@ class MessageActionSheet extends StatelessWidget {
                             : ch.memberIds
                                 .where((id) => id != data.currentUser.id)
                                 .map((id) => data.userById(id))
-                                .whereType<MockUser>()
+                                .whereType<AppUser>()
                                 .firstOrNull;
                         return ListTile(
                           leading: CircleAvatar(

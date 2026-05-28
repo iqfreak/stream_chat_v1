@@ -74,7 +74,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
       return Scaffold(appBar: AppBar(), body: const Center(child: Text('Not found')));
     }
 
-    MockMessage? parent;
+    AppMessage? parent;
     try {
       parent = channel.messages.firstWhere((m) => m.id == widget.messageId);
     } catch (_) {

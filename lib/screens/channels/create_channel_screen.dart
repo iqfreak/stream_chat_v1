@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../services/mock_data.dart';
@@ -6,7 +6,10 @@ import '../../theme/app_theme.dart';
 import '../../widgets/user_avatar.dart';
 
 class CreateChannelScreen extends StatefulWidget {
-  const CreateChannelScreen({super.key});
+  /// When true a welcome banner is shown (coming straight from registration).
+  final bool isNewUser;
+
+  const CreateChannelScreen({super.key, this.isNewUser = false});
 
   @override
   State<CreateChannelScreen> createState() => _CreateChannelScreenState();
@@ -65,6 +68,9 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
     context.go('/channels/${newChannel.id}/chat');
   }
 
+  /// Skip directly to the channel list without creating anything.
+  void _skipToChannels() => context.go('/channels');
+
   @override
   Widget build(BuildContext context) {
     final data = context.watch<MockDataService>();
@@ -78,20 +84,103 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New Chat'),
+        // When coming from registration there's no back destination — use
+        // a close/skip button instead so the user can jump to channels.
+        leading: widget.isNewUser
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: 'Skip for now',
+                onPressed: _skipToChannels,
+              )
+            : const BackButton(),
+        title: Text(widget.isNewUser ? 'Start a Chat' : 'New Chat'),
         actions: [
+          if (widget.isNewUser)
+            TextButton(
+              onPressed: _skipToChannels,
+              child: Text(
+                'Skip',
+                style: TextStyle(
+                  color: isDark
+                      ? AppColors.textDarkSecondary
+                      : AppColors.textLightSecondary,
+                ),
+              ),
+            ),
           TextButton(
             onPressed: _create,
             child: const Text(
               'Create',
-              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                  color: AppColors.primary, fontWeight: FontWeight.w700),
             ),
           ),
         ],
       ),
       body: Column(
         children: [
-          // DM vs Group toggle
+          // ── Welcome banner (new-user only) ─────────────────────────────
+          if (widget.isNewUser)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.15),
+                    AppColors.primary.withValues(alpha: 0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.waving_hand_rounded,
+                        color: AppColors.primary, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome to StreamChat!',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            color: isDark
+                                ? AppColors.textDark
+                                : AppColors.textLight,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Start by opening a DM or creating a group.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? AppColors.textDarkSecondary
+                                : AppColors.textLightSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // ── DM vs Group toggle ──────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Row(
@@ -119,7 +208,8 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
               ],
             ),
           ),
-          // Group name field
+
+          // ── Group name field ────────────────────────────────────────────
           if (_isGroup)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -131,7 +221,8 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                 ),
               ),
             ),
-          // Selected chips
+
+          // ── Selected chips ──────────────────────────────────────────────
           if (_selected.isNotEmpty)
             SizedBox(
               height: 56,
@@ -139,23 +230,24 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                for (final id in _selected)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Chip(
-                      avatar: UserAvatar(
-                          name: data.userById(id)!.name,
-                          size: 24,
-                          avatarUrl: data.userById(id)!.avatarUrl),
-                      label: Text(data.userById(id)!.name),
-                      deleteIcon: const Icon(Icons.close, size: 16),
-                      onDeleted: () => setState(() => _selected.remove(id)),
+                  for (final id in _selected)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Chip(
+                        avatar: UserAvatar(
+                            name: data.userById(id)!.name,
+                            size: 24,
+                            avatarUrl: data.userById(id)!.avatarUrl),
+                        label: Text(data.userById(id)!.name),
+                        deleteIcon: const Icon(Icons.close, size: 16),
+                        onDeleted: () => setState(() => _selected.remove(id)),
+                      ),
                     ),
-                  ),
-              ],
+                ],
               ),
             ),
-          // Search
+
+          // ── Search ─────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
@@ -167,63 +259,77 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
               ),
             ),
           ),
-          // Member list
+
+          // ── Member list ─────────────────────────────────────────────────
           Expanded(
-            child: ListView.builder(
-              itemCount: others.length,
-              itemBuilder: (context, i) {
-                final user = others[i];
-                final selected = _selected.contains(user.id);
-                return ListTile(
-                  leading: UserAvatar(
-                    name: user.name,
-                    avatarUrl: user.avatarUrl,
-                    size: 44,
-                    showOnline: user.isOnline,
-                  ),
-                  title: Text(user.name,
-                      style:
-                          const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text(
-                    user.email,
-                    style: TextStyle(
-                      color: isDark
-                          ? AppColors.textDarkSecondary
-                          : AppColors.textLightSecondary,
-                      fontSize: 12,
+            child: others.isEmpty
+                ? Center(
+                    child: Text(
+                      'No other users found',
+                      style: TextStyle(
+                        color: isDark
+                            ? AppColors.textDarkSecondary
+                            : AppColors.textLightSecondary,
+                      ),
                     ),
+                  )
+                : ListView.builder(
+                    itemCount: others.length,
+                    itemBuilder: (context, i) {
+                      final user = others[i];
+                      final selected = _selected.contains(user.id);
+                      return ListTile(
+                        leading: UserAvatar(
+                          name: user.name,
+                          avatarUrl: user.avatarUrl,
+                          size: 44,
+                          showOnline: user.isOnline,
+                        ),
+                        title: Text(user.name,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600)),
+                        subtitle: Text(
+                          user.email,
+                          style: TextStyle(
+                            color: isDark
+                                ? AppColors.textDarkSecondary
+                                : AppColors.textLightSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                        trailing: selected
+                            ? const CircleAvatar(
+                                radius: 12,
+                                backgroundColor: AppColors.primary,
+                                child: Icon(Icons.check,
+                                    color: Colors.white, size: 14),
+                              )
+                            : null,
+                        onTap: () {
+                          setState(() {
+                            if (!_isGroup) {
+                              _selected.clear();
+                              _selected.add(user.id);
+                            } else {
+                              if (selected) {
+                                _selected.remove(user.id);
+                              } else {
+                                _selected.add(user.id);
+                              }
+                            }
+                          });
+                        },
+                      );
+                    },
                   ),
-                  trailing: selected
-                      ? const CircleAvatar(
-                          radius: 12,
-                          backgroundColor: AppColors.primary,
-                          child:
-                              Icon(Icons.check, color: Colors.white, size: 14),
-                        )
-                      : null,
-                  onTap: () {
-                    setState(() {
-                      if (!_isGroup) {
-                        _selected.clear();
-                        _selected.add(user.id);
-                      } else {
-                        if (selected) {
-                          _selected.remove(user.id);
-                        } else {
-                          _selected.add(user.id);
-                        }
-                      }
-                    });
-                  },
-                );
-              },
-            ),
           ),
         ],
       ),
     );
   }
 }
+
+// ── Type toggle button ──────────────────────────────────────────────────────
 
 class _TypeButton extends StatelessWidget {
   final String label;
@@ -251,7 +357,9 @@ class _TypeButton extends StatelessWidget {
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? AppColors.primary : Colors.grey.withValues(alpha: 0.3),
+            color: selected
+                ? AppColors.primary
+                : Colors.grey.withValues(alpha: 0.3),
             width: selected ? 2 : 1,
           ),
         ),

@@ -71,7 +71,12 @@ GoRouter buildRouter(AppState appState) {
           GoRoute(
             path: 'create',
             name: 'createChannel',
-            builder: (context, state) => const CreateChannelScreen(),
+            builder: (context, state) {
+              // extra carries {isNewUser: true} when coming from registration
+              final extra = state.extra as Map<String, dynamic>?;
+              final isNewUser = extra?['isNewUser'] == true;
+              return CreateChannelScreen(isNewUser: isNewUser);
+            },
           ),
           GoRoute(
             path: ':channelId/chat',

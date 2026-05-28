@@ -73,7 +73,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           avatarPath: _pickedImage?.path,
         );
     context.read<AppState>().signIn();
-    context.go('/channels');
+    // Go straight to create-chat so the new user can start a DM or group
+    context.go('/channels/create', extra: {'isNewUser': true});
   }
 
   @override

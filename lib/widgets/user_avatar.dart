@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
@@ -35,18 +36,26 @@ class UserAvatar extends StatelessWidget {
     return colors[name.codeUnitAt(0) % colors.length];
   }
 
+  /// Returns the correct [ImageProvider] for a given URL:
+  /// - Local file paths (start with '/') → [FileImage]
+  /// - Everything else → [NetworkImage]
+  ImageProvider? _imageProvider() {
+    if (avatarUrl == null || avatarUrl!.isEmpty) return null;
+    if (avatarUrl!.startsWith('/')) return FileImage(File(avatarUrl!));
+    return NetworkImage(avatarUrl!);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final provider = _imageProvider();
     return Stack(
       children: [
         CircleAvatar(
           radius: size / 2,
           backgroundColor: _avatarColor(),
-          backgroundImage:
-              avatarUrl != null ? NetworkImage(avatarUrl!) : null,
-          onBackgroundImageError:
-              avatarUrl != null ? (error, stack) {} : null,
-          child: avatarUrl == null
+          backgroundImage: provider,
+          onBackgroundImageError: provider != null ? (error, stack) {} : null,
+          child: provider == null
               ? Text(
                   _initials,
                   style: TextStyle(

@@ -19,85 +19,83 @@ class NotificationsScreen extends StatelessWidget {
 
     return BottomNavScaffold(
       selectedIndex: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Notifications'),
-          actions: [
-            if (unreadCount > 0)
-              TextButton(
-                onPressed: data.markAllNotificationsRead,
-                child: const Text(
-                  'Mark all read',
-                  style: TextStyle(
-                      color: AppColors.primary, fontWeight: FontWeight.w600),
-                ),
+      appBar: AppBar(
+        title: const Text('Notifications'),
+        actions: [
+          if (unreadCount > 0)
+            TextButton(
+              onPressed: data.markAllNotificationsRead,
+              child: const Text(
+                'Mark all read',
+                style: TextStyle(
+                    color: AppColors.primary, fontWeight: FontWeight.w600),
               ),
-          ],
-        ),
-        body: notifications.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.notifications_none,
-                        size: 72,
-                        color: isDark
-                            ? AppColors.textDarkSecondary.withValues(alpha: 0.5)
-                            : AppColors.textLightSecondary.withValues(alpha: 0.4)),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No notifications yet',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: isDark
-                                ? AppColors.textDarkSecondary
-                                : AppColors.textLightSecondary,
-                          ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'You\'ll see @mentions and alerts here',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isDark
-                            ? AppColors.textDarkSecondary.withValues(alpha: 0.7)
-                            : AppColors.textLightSecondary.withValues(alpha: 0.7),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : ListView.separated(
-                itemCount: notifications.length,
-                separatorBuilder: (context, index) => Divider(
-                  height: 0,
-                  color: isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB),
-                ),
-                itemBuilder: (context, i) {
-                  final notif = notifications[i];
-                  final sender = data.userById(notif.fromUserId);
-                  final channel = data.channelById(notif.channelId);
-                  return _NotifTile(
-                    notification: notif,
-                    sender: sender,
-                    channelName: channel?.name ?? 'Unknown',
-                    isDark: isDark,
-                    onTap: () {
-                      data.markNotificationRead(notif.id);
-                      // Also clear the unread badge on the channel tile.
-                      data.markChannelRead(notif.channelId);
-                      context.push('/channels/${notif.channelId}/chat');
-                    },
-                  );
-                },
-              ),
+            ),
+        ],
       ),
+      body: notifications.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.notifications_none,
+                      size: 72,
+                      color: isDark
+                          ? AppColors.textDarkSecondary.withValues(alpha: 0.5)
+                          : AppColors.textLightSecondary.withValues(alpha: 0.4)),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No notifications yet',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: isDark
+                              ? AppColors.textDarkSecondary
+                              : AppColors.textLightSecondary,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'You\'ll see @mentions and alerts here',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark
+                          ? AppColors.textDarkSecondary.withValues(alpha: 0.7)
+                          : AppColors.textLightSecondary.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : ListView.separated(
+              itemCount: notifications.length,
+              separatorBuilder: (context, index) => Divider(
+                height: 0,
+                color: isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB),
+              ),
+              itemBuilder: (context, i) {
+                final notif = notifications[i];
+                final sender = data.userById(notif.fromUserId);
+                final channel = data.channelById(notif.channelId);
+                return _NotifTile(
+                  notification: notif,
+                  sender: sender,
+                  channelName: channel?.name ?? 'Unknown',
+                  isDark: isDark,
+                  onTap: () {
+                    data.markNotificationRead(notif.id);
+                    // Also clear the unread badge on the channel tile.
+                    data.markChannelRead(notif.channelId);
+                    context.push('/channels/${notif.channelId}/chat');
+                  },
+                );
+              },
+            ),
     );
   }
 }
 
 class _NotifTile extends StatelessWidget {
-  final MockNotification notification;
-  final MockUser? sender;
+  final AppNotification notification;
+  final AppUser? sender;
   final String channelName;
   final bool isDark;
   final VoidCallback onTap;

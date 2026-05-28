@@ -16,7 +16,7 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final _ctrl = TextEditingController();
   String _query = '';
-  List<({MockMessage message, MockChannel channel})> _results = [];
+  List<({AppMessage message, AppChannel channel})> _results = [];
   bool _searching = false;
 
   @override
@@ -37,65 +37,63 @@ class _SearchScreenState extends State<SearchScreen> {
 
     return BottomNavScaffold(
       selectedIndex: 1,
-      child: Scaffold(
-        appBar: AppBar(title: const Text('Search')),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: TextField(
-                controller: _ctrl,
-                autofocus: false,
-                onChanged: _doSearch,
-                decoration: InputDecoration(
-                  hintText: 'Search messages...',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _query.isNotEmpty
-                      ? IconButton(icon: const Icon(Icons.close), onPressed: () { _ctrl.clear(); _doSearch(''); })
-                      : null,
-                ),
+      appBar: AppBar(title: const Text('Search')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: TextField(
+              controller: _ctrl,
+              autofocus: false,
+              onChanged: _doSearch,
+              decoration: InputDecoration(
+                hintText: 'Search messages...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _query.isNotEmpty
+                    ? IconButton(icon: const Icon(Icons.close), onPressed: () { _ctrl.clear(); _doSearch(''); })
+                    : null,
               ),
             ),
-            Expanded(
-              child: _query.isEmpty
-                  ? _EmptyState(isDark: isDark)
-                  : _searching
-                      ? const Center(child: CircularProgressIndicator())
-                      : _results.isEmpty
-                          ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                              Icon(Icons.search_off, size: 64, color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary),
-                              const SizedBox(height: 12),
-                              Text('No results for "$_query"', style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
-                            ]))
-                          : ListView.separated(
-                              itemCount: _results.length,
-                              separatorBuilder: (_, __) => Divider(height: 0, indent: 72, color: isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB)),
-                              itemBuilder: (context, i) {
-                                final msg = _results[i].message;
-                                final ch = _results[i].channel;
-                                final sender = data.userById(msg.senderId);
-                                return ListTile(
-                                  leading: UserAvatar(name: sender?.name ?? '?', avatarUrl: sender?.avatarUrl, size: 44),
-                                  title: Row(children: [
-                                    Expanded(child: Text(sender?.name ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
-                                    Text(timeago.format(msg.createdAt), style: TextStyle(fontSize: 11, color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
+          ),
+          Expanded(
+            child: _query.isEmpty
+                ? _EmptyState(isDark: isDark)
+                : _searching
+                    ? const Center(child: CircularProgressIndicator())
+                    : _results.isEmpty
+                        ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.search_off, size: 64, color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary),
+                            const SizedBox(height: 12),
+                            Text('No results for "$_query"', style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
+                          ]))
+                        : ListView.separated(
+                            itemCount: _results.length,
+                            separatorBuilder: (_, __) => Divider(height: 0, indent: 72, color: isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB)),
+                            itemBuilder: (context, i) {
+                              final msg = _results[i].message;
+                              final ch = _results[i].channel;
+                              final sender = data.userById(msg.senderId);
+                              return ListTile(
+                                leading: UserAvatar(name: sender?.name ?? '?', avatarUrl: sender?.avatarUrl, size: 44),
+                                title: Row(children: [
+                                  Expanded(child: Text(sender?.name ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
+                                  Text(timeago.format(msg.createdAt), style: TextStyle(fontSize: 11, color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
+                                ]),
+                                subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  _HighlightText(text: msg.displayText, query: _query, isDark: isDark),
+                                  const SizedBox(height: 2),
+                                  Row(children: [
+                                    const Icon(Icons.chat_bubble_outline, size: 11, color: AppColors.primary),
+                                    const SizedBox(width: 3),
+                                    Text(ch.name, style: const TextStyle(fontSize: 11, color: AppColors.primary)),
                                   ]),
-                                  subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                    _HighlightText(text: msg.displayText, query: _query, isDark: isDark),
-                                    const SizedBox(height: 2),
-                                    Row(children: [
-                                      const Icon(Icons.chat_bubble_outline, size: 11, color: AppColors.primary),
-                                      const SizedBox(width: 3),
-                                      Text(ch.name, style: const TextStyle(fontSize: 11, color: AppColors.primary)),
-                                    ]),
-                                  ]),
-                                  onTap: () => context.push('/channels/${ch.id}/chat'),
-                                );
-                              },
-                            ),
-            ),
-          ],
-        ),
+                                ]),
+                                onTap: () => context.push('/channels/${ch.id}/chat'),
+                              );
+                            },
+                          ),
+          ),
+        ],
       ),
     );
   }

@@ -102,9 +102,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
       child: BottomNavScaffold(
         selectedIndex: 3,
-        child: Scaffold(
-          appBar: AppBar(title: Text(_tr('settings_title', lang))),
-          body: SingleChildScrollView(
+        appBar: AppBar(title: Text(_tr('settings_title', lang))),
+        body: SingleChildScrollView(
             padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).padding.bottom + 16),
             child: Column(
@@ -285,7 +284,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
-      ),
     ),
   );
   }

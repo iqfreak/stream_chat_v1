@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 
 class MockUser {
   final String id;
-  String name; // شلنا كلمة final عشان نقدر نعدلها
-  String email; // شلنا كلمة final
-  String avatarUrl; // شلنا كلمة final
+  String name;
+  String email;
+  String avatarUrl;
   bool isOnline;
 
   MockUser({
@@ -55,7 +55,18 @@ class MockMessage {
     this.editedText,
   });
 
-  String get displayText => editedText ?? text;
+  /// Returns the edited text if available, then the raw text.
+  /// If the message has no text but has image attachments, returns '📷 Photo'.
+  /// If there are other file attachments, returns '📎 File'.
+  String get displayText {
+    final base = editedText ?? text;
+    if (base.isNotEmpty) return base;
+    final hasImage = attachments.any((a) => a.type == 'image');
+    if (hasImage) return '📷 Photo';
+    final hasFile = attachments.isNotEmpty;
+    if (hasFile) return '📎 File';
+    return '';
+  }
 }
 
 class MockAttachment {
@@ -129,7 +140,6 @@ class MockDataService extends ChangeNotifier {
   void updateUserInfo(String newName, String newEmail) {
     _currentUser.name = newName;
     _currentUser.email = newEmail;
-    // تقدر تضيف تعديل الصورة هنا بعدين لو حبيت
     notifyListeners();
   }
 
@@ -425,6 +435,8 @@ class MockDataService extends ChangeNotifier {
       String channelId, String text, List<MockAttachment> attachments) {
     final ch = channelById(channelId);
     if (ch == null) return;
+    // Guard: only members can send
+    if (!ch.memberIds.contains(_currentUser.id)) return;
     final msg = MockMessage(
       id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
       senderId: _currentUser.id,
@@ -509,6 +521,8 @@ class MockDataService extends ChangeNotifier {
   void sendMessage(String channelId, String text) {
     final ch = channelById(channelId);
     if (ch == null) return;
+    // Guard: only members can send
+    if (!ch.memberIds.contains(_currentUser.id)) return;
     final msg = MockMessage(
       id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
       senderId: _currentUser.id,
@@ -644,12 +658,17 @@ class MockDataService extends ChangeNotifier {
     }
   }
 
-  void register(String name, String email) {
+  /// Registers a new user. If [avatarPath] is provided (local file path from
+  /// image_picker), it is used as the avatar; otherwise a default avatar is used.
+  void register(String name, String email, {String? avatarPath}) {
+    final avatarUrl = avatarPath != null && avatarPath.isNotEmpty
+        ? avatarPath
+        : 'https://i.pravatar.cc/150?img=33';
     final newUser = MockUser(
       id: 'user_new_${DateTime.now().millisecondsSinceEpoch}',
       name: name,
       email: email,
-      avatarUrl: 'https://i.pravatar.cc/150?img=33',
+      avatarUrl: avatarUrl,
       isOnline: true,
     );
     _allUsers.add(newUser);

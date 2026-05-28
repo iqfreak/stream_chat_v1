@@ -137,7 +137,9 @@ class MessageActionSheet extends StatelessWidget {
   }
 
   void _showEditDialog(BuildContext context, MockDataService data) {
-    final ctrl = TextEditingController(text: message.displayText);
+    // Use the raw text (or previously edited text) — NOT displayText, which
+    // would incorrectly pre-fill '📷 Photo' for image-only messages.
+    final ctrl = TextEditingController(text: message.editedText ?? message.text);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(

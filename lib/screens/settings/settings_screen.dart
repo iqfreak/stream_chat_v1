@@ -98,17 +98,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isLocalAvatar =
         user.avatarUrl.isNotEmpty && user.avatarUrl.startsWith('/');
 
-    return Directionality(
-      textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
-      child: BottomNavScaffold(
-        selectedIndex: 3,
-        appBar: AppBar(title: Text(_tr('settings_title', lang))),
-        body: SingleChildScrollView(
-            padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).padding.bottom + 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+    return BottomNavScaffold(
+      selectedIndex: 3,
+      appBar: AppBar(title: Text(_tr('settings_title', lang))),
+      body: Directionality(
+        textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).padding.bottom + 16),
+          children: [
               Container(
                 padding: const EdgeInsets.all(24),
                 color: isDark ? AppColors.darkCard : const Color(0xFFF5F6FA),
@@ -281,11 +280,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               const SizedBox(height: 32),
-            ],
-          ),
+          ],
         ),
-    ),
-  );
+      ),
+    );
   }
 
   void _showLanguagePicker(BuildContext context, AppState appState) {

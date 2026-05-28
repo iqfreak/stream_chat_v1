@@ -553,6 +553,29 @@ class StreamChatService extends ChangeNotifier {
 
   // ─── Search ───────────────────────────────────────────────────────────────
 
+  Future<List<AppUser>> searchUsers(String query) async {
+    if (query.trim().isEmpty) return [];
+    try {
+      final response = await _client.queryUsers(
+        filter: Filter.or([
+          Filter.autoComplete('name', query),
+          Filter.autoComplete('id', query),
+        ]),
+        sort: [SortOption.asc('name')],
+        pagination: const PaginationParams(limit: 20),
+      );
+      for (final u in response.users) {
+        _cachedUsers[u.id] = _toAppUser(u);
+      }
+      return response.users
+          .where((u) => u.id != _currentUser?.id)
+          .map(_toAppUser)
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<List<({AppMessage message, AppChannel channel})>> searchMessages(
       String query) async {
     if (query.trim().isEmpty) return [];

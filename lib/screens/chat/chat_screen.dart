@@ -1,5 +1,7 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../services/mock_data.dart';
@@ -18,6 +20,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
+  final _picker = ImagePicker();
   final bool _showTyping = false;
 
   @override
@@ -43,6 +46,38 @@ class _ChatScreenState extends State<ChatScreen> {
         curve: Curves.easeOut,
       );
     }
+  }
+
+  Future<void> _attach() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from Gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take a Photo'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+    final file = await _picker.pickImage(source: source);
+    if (file == null || !mounted) return;
+    context.read<MockDataService>().sendMessageWithAttachment(
+      widget.channelId,
+      '',
+      [MockAttachment(type: 'image', name: file.name, url: file.path)],
+    );
+    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
   }
 
   void _showActionSheet(MockMessage msg) {
@@ -212,6 +247,7 @@ class _ChatScreenState extends State<ChatScreen> {
             controller: _inputCtrl,
             isDark: isDark,
             onSend: _send,
+            onAttach: _attach,
             onChanged: (_) {},
           ),
         ],
@@ -376,10 +412,40 @@ class _MessageBubble extends StatelessWidget {
                               ),
                             ),
                           ),
-                        Text(
-                          message.displayText,
-                          style: TextStyle(color: textColor, fontSize: 14.5),
-                        ),
+                        if (message.text.isNotEmpty)
+                          Text(
+                            message.displayText,
+                            style: TextStyle(color: textColor, fontSize: 14.5),
+                          ),
+                        ...message.attachments.map((att) {
+                          if (att.type == 'image') {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: att.url.startsWith('/')
+                                    ? Image.file(File(att.url),
+                                        width: 200, fit: BoxFit.cover)
+                                    : Image.network(att.url,
+                                        width: 200, fit: BoxFit.cover),
+                              ),
+                            );
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.attach_file,
+                                    size: 16, color: textColor),
+                                const SizedBox(width: 4),
+                                Text(att.name,
+                                    style: TextStyle(
+                                        color: textColor, fontSize: 13)),
+                              ],
+                            ),
+                          );
+                        }),
                         if (message.editedText != null)
                           Text(
                             '(edited)',
@@ -498,12 +564,14 @@ class _InputArea extends StatelessWidget {
   final TextEditingController controller;
   final bool isDark;
   final VoidCallback onSend;
+  final VoidCallback onAttach;
   final ValueChanged<String> onChanged;
 
   const _InputArea({
     required this.controller,
     required this.isDark,
     required this.onSend,
+    required this.onAttach,
     required this.onChanged,
   });
 
@@ -528,7 +596,7 @@ class _InputArea extends StatelessWidget {
                   ? AppColors.textDarkSecondary
                   : AppColors.textLightSecondary,
             ),
-            onPressed: () {},
+            onPressed: onAttach,
           ),
           Expanded(
             child: TextField(

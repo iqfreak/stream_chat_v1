@@ -21,12 +21,6 @@ class ChannelListScreen extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('StreamChat'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.edit_square),
-              onPressed: () => context.push('/channels/create'),
-            ),
-          ],
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () => context.push('/channels/create'),

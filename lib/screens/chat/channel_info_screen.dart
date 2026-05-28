@@ -36,6 +36,8 @@ class ChannelInfoScreen extends StatelessWidget {
         title: const Text('Channel Info'),
       ),
       body: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 16),
         children: [
           // Header
           Container(
@@ -203,8 +205,30 @@ class ChannelInfoScreen extends StatelessWidget {
                 side: const BorderSide(color: AppColors.error),
                 minimumSize: const Size(double.infinity, 48),
               ),
-              onPressed: () {
-                context.go('/channels');
+              onPressed: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Leave Channel'),
+                    content: const Text(
+                        'Are you sure you want to leave this channel?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Leave',
+                            style: TextStyle(color: AppColors.error)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true && context.mounted) {
+                  context.read<MockDataService>().leaveChannel(channelId);
+                  context.go('/channels');
+                }
               },
             ),
           ),

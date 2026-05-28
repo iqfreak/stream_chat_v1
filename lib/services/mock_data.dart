@@ -414,6 +414,31 @@ class MockDataService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void leaveChannel(String channelId) {
+    final ch = channelById(channelId);
+    if (ch == null) return;
+    ch.memberIds.remove(_currentUser.id);
+    notifyListeners();
+  }
+
+  void sendMessageWithAttachment(
+      String channelId, String text, List<MockAttachment> attachments) {
+    final ch = channelById(channelId);
+    if (ch == null) return;
+    final msg = MockMessage(
+      id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
+      senderId: _currentUser.id,
+      text: text,
+      createdAt: DateTime.now(),
+      isRead: false,
+      attachments: attachments,
+    );
+    ch.messages = [...ch.messages, msg];
+    _channels.remove(ch);
+    _channels.insert(0, ch);
+    notifyListeners();
+  }
+
   // Notifications
   late final List<MockNotification> _notifications =
       _buildInitialNotifications();

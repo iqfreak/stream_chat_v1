@@ -110,6 +110,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Scaffold(
           appBar: AppBar(title: Text(_tr('settings_title', lang))),
           body: ListView(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 16),
             children: [
               Container(
                 padding: const EdgeInsets.all(24),

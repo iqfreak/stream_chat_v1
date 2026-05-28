@@ -39,7 +39,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         appBar: AppBar(title: Text(isArabic ? 'تعديل الحساب' : 'Edit Profile')),
-        body: Padding(
+        body: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             children: [
@@ -62,7 +62,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -74,12 +74,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                   ),
                   onPressed: () {
-                    // هنا بنستدعي الدالة اللي ضفناها عشان تحفظ بجد
                     context.read<MockDataService>().updateUserInfo(
                       _nameController.text,
                       _emailController.text,
                     );
-
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
@@ -89,7 +87,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ),
                       ),
                     );
-                    Navigator.pop(context); // الرجوع للخلف بعد الحفظ
+                    Navigator.pop(context);
                   },
                   child: Text(
                     isArabic ? 'حفظ التعديلات' : 'Save Changes',

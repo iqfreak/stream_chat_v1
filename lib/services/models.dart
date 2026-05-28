@@ -14,6 +14,9 @@ class AppUser {
     required this.avatarUrl,
     this.isOnline = false,
   });
+
+  /// The Stream Chat user ID is the username (e.g. "johndoe")
+  String get username => id;
 }
 
 class AppReaction {

@@ -95,12 +95,30 @@ class StreamChatService extends ChangeNotifier {
     return true;
   }
 
+  // Returns null if valid, or an error message string.
+  static String? validateUsername(String username) {
+    if (username.length < 3) return 'Username must be at least 3 characters';
+    if (username.length > 24) return 'Username must be 24 characters or less';
+    if (!RegExp(r'^[a-z0-9_]+$').hasMatch(username)) {
+      return 'Only lowercase letters, numbers, and underscores';
+    }
+    if (!RegExp(r'^[a-z]').hasMatch(username)) {
+      return 'Username must start with a letter';
+    }
+    return null;
+  }
+
   Future<void> register(
     String name,
     String email,
-    String password, {
+    String password,
+    String username, {
     String? avatarPath,
   }) async {
+    final sanitized = username.trim().toLowerCase();
+    final validationError = validateUsername(sanitized);
+    if (validationError != null) throw Exception(validationError);
+
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('sc_users') ?? '[]';
     final users = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
@@ -108,11 +126,25 @@ class StreamChatService extends ChangeNotifier {
     if (users.any((u) => u['email'] == email)) {
       throw Exception('Email already registered');
     }
+    if (users.any((u) => u['id'] == sanitized)) {
+      throw Exception('Username @$sanitized is already taken');
+    }
 
-    final userId = const Uuid().v4().replaceAll('-', '_');
+    // Also check against Stream Chat to catch users from other devices
+    try {
+      final existing = await _client.queryUsers(
+        filter: Filter.equal('id', sanitized),
+        pagination: const PaginationParams(limit: 1),
+      );
+      if (existing.users.isNotEmpty) {
+        throw Exception('Username @$sanitized is already taken');
+      }
+    } catch (e) {
+      if (e is Exception && e.toString().contains('already taken')) rethrow;
+    }
 
     users.add({
-      'id': userId,
+      'id': sanitized,
       'name': name,
       'email': email,
       'password_hash': _hashPassword(password),
@@ -120,10 +152,10 @@ class StreamChatService extends ChangeNotifier {
     });
 
     await prefs.setString('sc_users', jsonEncode(users));
-    await prefs.setString('sc_current_user_id', userId);
+    await prefs.setString('sc_current_user_id', sanitized);
 
     await _connectUser(
-      userId: userId,
+      userId: sanitized,
       name: name,
       email: email,
       avatarUrl: avatarPath ?? '',

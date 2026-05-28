@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -19,30 +19,24 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _pushNotificationsEnabled = true;
   bool _mentionsEnabled = true;
-  File? _profileImage; // لحفظ الصورة المختارة
 
-  // دالة لاختيار الصورة من المعرض
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
-    if (pickedFile != null) {
-      setState(() {
-        _profileImage = File(pickedFile.path);
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _tr('image_updated', context.read<AppState>().locale),
-            ),
+    if (pickedFile != null && mounted) {
+      // Persist to the data service so every widget sees the update
+      context.read<MockDataService>().updateUserAvatar(pickedFile.path);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _tr('image_updated', context.read<AppState>().locale),
           ),
-        );
-      }
+        ),
+      );
     }
   }
 
-  // قاموس ترجمة بسيط
   String _tr(String key, String lang) {
     const dict = {
       'en': {
@@ -102,6 +96,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final user = data.currentUser;
     final isDark = appState.isDark;
     final lang = appState.locale;
+    // Determine whether the avatar is a local file or a network URL
+    final isLocalAvatar =
+        user.avatarUrl.isNotEmpty && user.avatarUrl.startsWith('/');
 
     return Directionality(
       textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
@@ -110,7 +107,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Scaffold(
           appBar: AppBar(title: Text(_tr('settings_title', lang))),
           body: ListView(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 16),
+            padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).padding.bottom + 16),
             children: [
               Container(
                 padding: const EdgeInsets.all(24),
@@ -121,10 +119,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onTap: _pickImage,
                       child: Stack(
                         children: [
-                          _profileImage != null
+                          isLocalAvatar
                               ? CircleAvatar(
                                   radius: 44,
-                                  backgroundImage: FileImage(_profileImage!),
+                                  backgroundImage:
+                                      FileImage(File(user.avatarUrl)),
                                 )
                               : UserAvatar(
                                   name: user.name,
@@ -155,9 +154,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 14),
                     Text(
                       user.name,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -194,7 +194,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.dark_mode_outlined,
                 iconColor: const Color(0xFF7B61FF),
                 label: _tr('dark_mode', lang),
-                subtitle: isDark ? _tr('enabled', lang) : _tr('disabled', lang),
+                subtitle:
+                    isDark ? _tr('enabled', lang) : _tr('disabled', lang),
                 trailing: Switch(
                   value: isDark,
                   onChanged: (_) => appState.toggleTheme(),
@@ -320,10 +321,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _confirmSignOut(BuildContext context, String lang) {
-    // ... (نفس كود الخروج القديم)
-    context.read<AppState>().signOut();
-    context.read<MockDataService>().logout();
-    context.go('/login');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(_tr('sign_out', lang)),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<AppState>().signOut();
+              context.read<MockDataService>().logout();
+              context.go('/login');
+            },
+            child: Text(_tr('sign_out', lang)),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -379,13 +399,15 @@ class _SettingsTile extends StatelessWidget {
         ),
         child: Icon(icon, color: iconColor, size: 20),
       ),
-      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+      title:
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: subtitle != null
           ? Text(subtitle!, style: const TextStyle(fontSize: 12))
           : null,
-      trailing:
-          trailing ??
-          (onTap != null ? const Icon(Icons.chevron_right, size: 20) : null),
+      trailing: trailing ??
+          (onTap != null
+              ? const Icon(Icons.chevron_right, size: 20)
+              : null),
       onTap: onTap,
     );
   }

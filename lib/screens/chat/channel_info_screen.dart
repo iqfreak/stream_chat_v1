@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../services/mock_data.dart';
@@ -34,10 +34,19 @@ class ChannelInfoScreen extends StatelessWidget {
       appBar: AppBar(
         leading: BackButton(onPressed: () => context.pop()),
         title: const Text('Channel Info'),
+        actions: [
+          if (channel.isGroup)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Rename group',
+              onPressed: () => _showRenameDialog(context, data, channel.name),
+            ),
+        ],
       ),
       body: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 16),
+        padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom + 16),
         children: [
           // Header
           Container(
@@ -57,16 +66,17 @@ class ChannelInfoScreen extends StatelessWidget {
                       ),
                       borderRadius: BorderRadius.circular(24),
                     ),
-                    child: const Icon(Icons.group, color: Colors.white, size: 40),
+                    child: const Icon(Icons.group,
+                        color: Colors.white, size: 40),
                   )
                 else ...[
                   UserAvatar(
                     name: members
-                            .firstWhere(
-                              (u) => u.id != data.currentUser.id,
-                              orElse: () => members.first,
-                            )
-                            .name,
+                        .firstWhere(
+                          (u) => u.id != data.currentUser.id,
+                          orElse: () => members.first,
+                        )
+                        .name,
                     avatarUrl: members
                         .firstWhere(
                           (u) => u.id != data.currentUser.id,
@@ -107,8 +117,40 @@ class ChannelInfoScreen extends StatelessWidget {
 
           const SizedBox(height: 8),
 
-          // Members
-          _SectionHeader(title: 'Members (${members.length})'),
+          // Members section header with "Add member" button for groups
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Members (${members.length})',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: isDark
+                          ? AppColors.textDarkSecondary
+                          : AppColors.textLightSecondary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                if (channel.isGroup)
+                  TextButton.icon(
+                    icon: const Icon(Icons.person_add_outlined, size: 16),
+                    label: const Text('Add'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                    ),
+                    onPressed: () =>
+                        _showAddMemberSheet(context, data, channel),
+                  ),
+              ],
+            ),
+          ),
+
           ...members.map((user) => ListTile(
                 leading: UserAvatar(
                   name: user.name,
@@ -134,7 +176,8 @@ class ChannelInfoScreen extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AppColors.online.withValues(alpha: 0.15),
+                          color:
+                              AppColors.online.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text(
@@ -194,13 +237,15 @@ class ChannelInfoScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          // Leave / close
+          // Leave / Delete
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: OutlinedButton.icon(
               icon: const Icon(Icons.exit_to_app, color: AppColors.error),
-              label: const Text('Leave Channel',
-                  style: TextStyle(color: AppColors.error)),
+              label: Text(
+                channel.isGroup ? 'Leave Channel' : 'Delete Chat',
+                style: const TextStyle(color: AppColors.error),
+              ),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: AppColors.error),
                 minimumSize: const Size(double.infinity, 48),
@@ -209,9 +254,11 @@ class ChannelInfoScreen extends StatelessWidget {
                 final confirmed = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: const Text('Leave Channel'),
-                    content: const Text(
-                        'Are you sure you want to leave this channel?'),
+                    title: Text(
+                        channel.isGroup ? 'Leave Channel' : 'Delete Chat'),
+                    content: Text(channel.isGroup
+                        ? 'Are you sure you want to leave this channel?'
+                        : 'Are you sure you want to delete this chat?'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
@@ -219,14 +266,25 @@ class ChannelInfoScreen extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Leave',
-                            style: TextStyle(color: AppColors.error)),
+                        child: Text(
+                          channel.isGroup ? 'Leave' : 'Delete',
+                          style:
+                              const TextStyle(color: AppColors.error),
+                        ),
                       ),
                     ],
                   ),
                 );
                 if (confirmed == true && context.mounted) {
-                  context.read<MockDataService>().leaveChannel(channelId);
+                  if (channel.isGroup) {
+                    context
+                        .read<MockDataService>()
+                        .leaveChannel(channelId);
+                  } else {
+                    context
+                        .read<MockDataService>()
+                        .deleteChannel(channelId);
+                  }
                   context.go('/channels');
                 }
               },
@@ -235,6 +293,106 @@ class ChannelInfoScreen extends StatelessWidget {
           const SizedBox(height: 32),
         ],
       ),
+    );
+  }
+
+  void _showRenameDialog(
+      BuildContext context, MockDataService data, String currentName) {
+    final ctrl = TextEditingController(text: currentName);
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Rename group'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration:
+              const InputDecoration(hintText: 'Enter new group name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final name = ctrl.text.trim();
+              if (name.isNotEmpty) {
+                data.renameChannel(channelId, name);
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddMemberSheet(
+      BuildContext context, MockDataService data, MockChannel channel) {
+    final nonMembers = data.allUsers
+        .where((u) => !channel.memberIds.contains(u.id))
+        .toList();
+
+    if (nonMembers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All users are already members.')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
+              child: Text(
+                'Add Member',
+                style:
+                    TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const Divider(height: 0),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: nonMembers.length,
+                itemBuilder: (_, i) {
+                  final user = nonMembers[i];
+                  return ListTile(
+                    leading: UserAvatar(
+                        name: user.name,
+                        avatarUrl: user.avatarUrl,
+                        size: 42),
+                    title: Text(user.name,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600)),
+                    subtitle: Text(user.email,
+                        style: const TextStyle(fontSize: 12)),
+                    onTap: () {
+                      data.addMemberToChannel(channel.id, user.id);
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text(
+                                '${user.name} added to ${channel.name}')),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        );
+      },
     );
   }
 }
@@ -253,7 +411,9 @@ class _SectionHeader extends StatelessWidget {
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
-          color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary,
+          color: isDark
+              ? AppColors.textDarkSecondary
+              : AppColors.textLightSecondary,
           letterSpacing: 0.5,
         ),
       ),

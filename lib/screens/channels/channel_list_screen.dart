@@ -40,11 +40,25 @@ class ChannelListScreen extends StatelessWidget {
                 itemBuilder: (context, i) {
                   final ch = channels[i];
                   final last = ch.lastMessage;
-                  final preview = last == null
-                      ? 'No messages yet'
-                      : last.isDeleted
-                          ? 'Message deleted'
-                          : last.displayText;
+
+                  // Build preview text — prefix with sender name in groups
+                  String preview;
+                  if (last == null) {
+                    preview = 'No messages yet';
+                  } else if (last.isDeleted) {
+                    preview = 'Message deleted';
+                  } else {
+                    final text = last.displayText;
+                    if (ch.isGroup) {
+                      final sender = data.userById(last.senderId);
+                      final senderName = last.senderId == data.currentUser.id
+                          ? 'You'
+                          : (sender?.name.split(' ').first ?? 'Unknown');
+                      preview = '$senderName: $text';
+                    } else {
+                      preview = text;
+                    }
+                  }
 
                   Widget avatar;
                   if (ch.isGroup) {
@@ -64,81 +78,127 @@ class ChannelListScreen extends StatelessWidget {
                     );
                   }
 
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
-                    leading: avatar,
-                    title: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            ch.isGroup
-                                ? ch.name
-                                : (data
-                                        .userById(ch.memberIds.firstWhere(
-                                            (id) => id != data.currentUser.id,
-                                            orElse: () => ch.memberIds.first))
-                                        ?.name ??
-                                    ch.name),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (last != null)
-                          Text(
-                            timeago.format(last.createdAt, allowFromNow: true),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDark
-                                  ? AppColors.textDarkSecondary
-                                  : AppColors.textLightSecondary,
-                            ),
-                          ),
-                      ],
+                  // Swipe-to-delete
+                  return Dismissible(
+                    key: ValueKey(ch.id),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      color: AppColors.error,
+                      child: const Icon(Icons.delete_outline,
+                          color: Colors.white, size: 28),
                     ),
-                    subtitle: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            preview,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isDark
-                                  ? AppColors.textDarkSecondary
-                                  : AppColors.textLightSecondary,
-                              fontWeight: ch.unreadCount > 0
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
+                    confirmDismiss: (_) async {
+                      return await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Delete chat?'),
+                          content: Text(
+                            'Are you sure you want to remove "${ch.isGroup ? ch.name : (data.userById(ch.memberIds.firstWhere((id) => id != data.currentUser.id, orElse: () => ch.memberIds.first))?.name ?? ch.name)}"?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.error),
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      ) ??
+                          false;
+                    },
+                    onDismissed: (_) {
+                      context.read<MockDataService>().deleteChannel(ch.id);
+                    },
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      leading: avatar,
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              ch.isGroup
+                                  ? ch.name
+                                  : (data
+                                          .userById(ch.memberIds.firstWhere(
+                                              (id) =>
+                                                  id != data.currentUser.id,
+                                              orElse: () =>
+                                                  ch.memberIds.first))
+                                          ?.name ??
+                                      ch.name),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        ),
-                        if (ch.unreadCount > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(12),
+                          if (last != null)
+                            Text(
+                              timeago.format(last.createdAt,
+                                  allowFromNow: true),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark
+                                    ? AppColors.textDarkSecondary
+                                    : AppColors.textLightSecondary,
+                              ),
                             ),
+                        ],
+                      ),
+                      subtitle: Row(
+                        children: [
+                          Expanded(
                             child: Text(
-                              '${ch.unreadCount}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
+                              preview,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark
+                                    ? AppColors.textDarkSecondary
+                                    : AppColors.textLightSecondary,
+                                fontWeight: ch.unreadCount > 0
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
                               ),
                             ),
                           ),
-                      ],
+                          if (ch.unreadCount > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${ch.unreadCount}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      onTap: () {
+                        // Mark channel as read when opening
+                        context
+                            .read<MockDataService>()
+                            .markChannelRead(ch.id);
+                        context.push('/channels/${ch.id}/chat');
+                      },
                     ),
-                    onTap: () {
-                      context.push('/channels/${ch.id}/chat');
-                    },
                   );
                 },
               ),
@@ -188,7 +248,8 @@ class _GroupAvatar extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: Theme.of(context).scaffoldBackgroundColor, width: 2),
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    width: 2),
               ),
               child: UserAvatar(
                 avatarUrl: members[1].avatarUrl,

@@ -143,6 +143,12 @@ class MockDataService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Updates the current user's avatar URL (local file path or network URL).
+  void updateUserAvatar(String avatarUrl) {
+    _currentUser.avatarUrl = avatarUrl;
+    notifyListeners();
+  }
+
   // All users
   static final List<MockUser> _allUsers = [
     MockUser(
@@ -424,10 +430,43 @@ class MockDataService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Removes a channel entirely (used for delete-chat).
+  void deleteChannel(String channelId) {
+    _channels.removeWhere((c) => c.id == channelId);
+    notifyListeners();
+  }
+
   void leaveChannel(String channelId) {
     final ch = channelById(channelId);
     if (ch == null) return;
     ch.memberIds.remove(_currentUser.id);
+    notifyListeners();
+  }
+
+  /// Clears the unread badge for a channel (call when opening the chat).
+  void markChannelRead(String channelId) {
+    final ch = channelById(channelId);
+    if (ch == null) return;
+    if (ch.unreadCount == 0) return;
+    ch.unreadCount = 0;
+    notifyListeners();
+  }
+
+  /// Adds a member to a group channel.
+  void addMemberToChannel(String channelId, String userId) {
+    final ch = channelById(channelId);
+    if (ch == null) return;
+    if (!ch.memberIds.contains(userId)) {
+      ch.memberIds.add(userId);
+      notifyListeners();
+    }
+  }
+
+  /// Renames a group channel.
+  void renameChannel(String channelId, String newName) {
+    final ch = channelById(channelId);
+    if (ch == null) return;
+    ch.name = newName;
     notifyListeners();
   }
 
@@ -540,6 +579,8 @@ class MockDataService extends ChangeNotifier {
   void sendThreadReply(String channelId, String messageId, String text) {
     final ch = channelById(channelId);
     if (ch == null) return;
+    // Guard: only members can reply in threads
+    if (!ch.memberIds.contains(_currentUser.id)) return;
     final msg = ch.messages.firstWhere(
       (m) => m.id == messageId,
       orElse: () => ch.messages.first,

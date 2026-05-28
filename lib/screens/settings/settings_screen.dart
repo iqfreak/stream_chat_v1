@@ -101,9 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return BottomNavScaffold(
       selectedIndex: 3,
       appBar: AppBar(title: Text(_tr('settings_title', lang))),
-      body: Directionality(
-        textDirection: lang == 'ar' ? TextDirection.rtl : TextDirection.ltr,
-        child: ListView(
+      body: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.only(
               bottom: MediaQuery.of(context).padding.bottom + 16),
@@ -265,24 +263,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: 'Version 1.0.0',
                 onTap: () => context.push('/about'),
               ),
-
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.logout),
-                  label: Text(_tr('sign_out', lang)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.error,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () => _confirmSignOut(context, lang),
-                ),
+              _SettingsTile(
+                icon: Icons.logout,
+                iconColor: AppColors.error,
+                label: _tr('sign_out', lang),
+                onTap: () => _confirmSignOut(context, lang),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
           ],
         ),
-      ),
     );
   }
 

@@ -69,7 +69,7 @@ class StreamChatService extends ChangeNotifier {
       'user_id': userId,
       'iat': iat.millisecondsSinceEpoch ~/ 1000,
     });
-    return jwt.sign(SecretKey(kStreamApiSecret));
+    return jwt.sign(SecretKey(kStreamApiSecret), noIssueAt: true);
   }
 
   // ─── Auth ─────────────────────────────────────────────────────────────────

@@ -19,6 +19,13 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _pushNotificationsEnabled = true;
   bool _mentionsEnabled = true;
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -102,6 +109,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       selectedIndex: 3,
       appBar: AppBar(title: Text(_tr('settings_title', lang))),
       body: ListView(
+          controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.only(
               bottom: MediaQuery.of(context).padding.bottom + 16),

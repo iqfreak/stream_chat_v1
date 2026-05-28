@@ -32,8 +32,9 @@ class BottomNavScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final data = context.watch<StreamChatService>();
-    final unread = data.unreadNotificationCount;
+    final unread = context.select<StreamChatService, int>(
+      (svc) => svc.unreadNotificationCount,
+    );
 
     return Scaffold(
       appBar: appBar,

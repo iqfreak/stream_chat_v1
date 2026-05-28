@@ -21,8 +21,6 @@ class _ChatScreenState extends State<ChatScreen> {
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   final _picker = ImagePicker();
-  final bool _showTyping = false;
-
   @override
   void initState() {
     super.initState();

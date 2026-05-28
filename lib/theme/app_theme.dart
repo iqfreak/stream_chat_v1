@@ -42,3 +42,45 @@ class AppColors {
   // Reaction
   static const reactionBg = Color(0xFF1D2941);
 }
+
+class AppTheme {
+  static ThemeData get light => ThemeData(
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: AppColors.lightBg,
+        colorScheme: const ColorScheme.light(
+          primary: AppColors.primary,
+          secondary: AppColors.accent,
+          surface: AppColors.lightSurface,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.lightAppBar,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+        navigationBarTheme: const NavigationBarThemeData(
+          backgroundColor: AppColors.lightNavBar,
+        ),
+        dividerColor: const Color(0xFFE5E7EB),
+        useMaterial3: true,
+      );
+
+  static ThemeData get dark => ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: AppColors.darkBg,
+        colorScheme: const ColorScheme.dark(
+          primary: AppColors.primary,
+          secondary: AppColors.accent,
+          surface: AppColors.darkSurface,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.darkAppBar,
+          foregroundColor: Colors.white,
+          elevation: 0,
+        ),
+        navigationBarTheme: const NavigationBarThemeData(
+          backgroundColor: AppColors.darkNavBar,
+        ),
+        dividerColor: AppColors.darkDivider,
+        useMaterial3: true,
+      );
+}

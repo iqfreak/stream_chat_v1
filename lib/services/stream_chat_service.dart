@@ -64,11 +64,12 @@ class StreamChatService extends ChangeNotifier {
       sha256.convert(utf8.encode(password)).toString();
 
   static String _generateToken(String userId) {
-    final jwt = JWT({'user_id': userId});
-    return jwt.sign(
-      SecretKey(kStreamApiSecret),
-      issuedAt: DateTime.now().subtract(const Duration(seconds: 5)),
-    );
+    final iat = DateTime.now().subtract(const Duration(seconds: 5));
+    final jwt = JWT({
+      'user_id': userId,
+      'iat': iat.millisecondsSinceEpoch ~/ 1000,
+    });
+    return jwt.sign(SecretKey(kStreamApiSecret));
   }
 
   // ─── Auth ─────────────────────────────────────────────────────────────────

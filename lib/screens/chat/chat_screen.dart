@@ -693,14 +693,14 @@ class _ImageAttachment extends StatelessWidget {
                 width: 220,
                 height: 180,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _BrokenImage(isDark: isDark),
+                errorBuilder: (_, _, _) => _BrokenImage(isDark: isDark),
               )
             : Image.network(
                 attachment.url,
                 width: 220,
                 height: 180,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _BrokenImage(isDark: isDark),
+                errorBuilder: (_, _, _) => _BrokenImage(isDark: isDark),
               ),
       ),
     );

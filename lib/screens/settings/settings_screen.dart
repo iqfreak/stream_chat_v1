@@ -25,7 +25,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null && mounted) {
-      // Persist to the data service so every widget sees the update
       context.read<MockDataService>().updateUserAvatar(pickedFile.path);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -96,7 +95,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final user = data.currentUser;
     final isDark = appState.isDark;
     final lang = appState.locale;
-    // Determine whether the avatar is a local file or a network URL
     final isLocalAvatar =
         user.avatarUrl.isNotEmpty && user.avatarUrl.startsWith('/');
 
@@ -394,13 +392,12 @@ class _SettingsTile extends StatelessWidget {
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: iconColor.withOpacity(0.12),
+          color: iconColor.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: iconColor, size: 20),
       ),
-      title:
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: subtitle != null
           ? Text(subtitle!, style: const TextStyle(fontSize: 12))
           : null,

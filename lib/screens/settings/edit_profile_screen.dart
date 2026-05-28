@@ -68,13 +68,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final isArabic = lang == 'ar';
     final data = context.watch<MockDataService>();
     final user = data.currentUser;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Determine which avatar to preview:
     // 1. Newly picked (pending) local path
     // 2. Existing local path already stored
     // 3. Network URL or empty → fall back to initials avatar
-    final previewPath = _pendingAvatarPath ?? 
+    final previewPath = _pendingAvatarPath ??
         (user.avatarUrl.startsWith('/') ? user.avatarUrl : null);
     final networkUrl = (previewPath == null && user.avatarUrl.isNotEmpty &&
             !user.avatarUrl.startsWith('/'))
@@ -144,7 +143,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   child: Text(
                     _pendingAvatarPath != null
                         ? (isArabic ? 'تغيير الصورة' : 'Change photo')
-                        : (isArabic ? 'تغيير صورة الملف الشخصي' : 'Change profile photo'),
+                        : (isArabic
+                            ? 'تغيير صورة الملف الشخصي'
+                            : 'Change profile photo'),
                   ),
                 ),
               ),

@@ -128,8 +128,10 @@ class MockNotification {
 // ─── Data Layer ───────────────────────────────────────────────────────────────
 
 class MockDataService extends ChangeNotifier {
-  // Current logged-in user
-  MockUser _currentUser = _allUsers[0];
+  // Current logged-in user.
+  // `late` is required because _allUsers is now an instance field (not static),
+  // so it cannot be referenced in a non-late field initialiser at the class level.
+  late MockUser _currentUser = _allUsers[0];
   MockUser get currentUser => _currentUser;
 
   void setCurrentUser(MockUser user) {
@@ -149,8 +151,9 @@ class MockDataService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // All users
-  static final List<MockUser> _allUsers = [
+  // All users — instance field (not static) so each MockDataService instance
+  // owns its own list and registered users don't bleed across instances.
+  final List<MockUser> _allUsers = [
     MockUser(
       id: 'user_1',
       name: 'Alex Chen',
@@ -358,7 +361,7 @@ class MockDataService extends ChangeNotifier {
           MockMessage(
             id: 'm_3_3',
             senderId: 'user_3',
-            text: 'PR looks good! Left a few minor comments.',
+            text: 'PR looks good! Left some minor comments.',
             createdAt: now.subtract(const Duration(hours: 20)),
             isRead: true,
           ),
@@ -366,35 +369,27 @@ class MockDataService extends ChangeNotifier {
       ),
       MockChannel(
         id: 'ch_4',
-        name: 'Engineering Hub',
+        name: 'Product Squad',
         isGroup: true,
-        memberIds: ['user_1', 'user_3', 'user_5'],
+        memberIds: ['user_1', 'user_2', 'user_5', 'user_6'],
         unreadCount: 0,
         messages: [
           MockMessage(
             id: 'm_4_1',
             senderId: 'user_5',
-            text: 'CI pipeline is fixed. All tests passing.',
-            createdAt: now.subtract(const Duration(hours: 5)),
+            text: 'Q3 roadmap is finalized. Check the Notion doc.',
+            createdAt: now.subtract(const Duration(days: 2)),
             isRead: true,
-            reactions: [
-              MockReaction(emoji: '✅', userIds: ['user_1', 'user_3']),
-            ],
           ),
           MockMessage(
             id: 'm_4_2',
-            senderId: 'user_1',
-            text: 'Great work James! Let\'s merge and deploy.',
-            createdAt: now.subtract(const Duration(hours: 4)),
+            senderId: 'user_6',
+            text: 'Great work everyone! The new features look solid.',
+            createdAt: now.subtract(const Duration(days: 2, minutes: -20)),
             isRead: true,
-          ),
-          MockMessage(
-            id: 'm_4_3',
-            senderId: 'user_3',
-            text: 'Deployment successful. Version 1.2.0 is live!',
-            createdAt: now.subtract(const Duration(hours: 3)),
-            isRead: true,
-            isPinned: true,
+            reactions: [
+              MockReaction(emoji: '🎉', userIds: ['user_1', 'user_5']),
+            ],
           ),
         ],
       ),
@@ -409,7 +404,7 @@ class MockDataService extends ChangeNotifier {
           MockMessage(
             id: 'm_5_1',
             senderId: 'user_4',
-            text: 'Thanks for the feedback on the prototype!',
+            text: 'Hey! Did you get a chance to look at the new designs?',
             createdAt: now.subtract(const Duration(days: 2)),
             isRead: true,
           ),
@@ -454,26 +449,24 @@ class MockDataService extends ChangeNotifier {
   void markChannelRead(String channelId) {
     final ch = channelById(channelId);
     if (ch == null) return;
-    if (ch.unreadCount == 0) return;
     ch.unreadCount = 0;
     notifyListeners();
   }
 
-  /// Adds a member to a group channel.
-  void addMemberToChannel(String channelId, String userId) {
+  void sendMessage(String channelId, String text) {
     final ch = channelById(channelId);
     if (ch == null) return;
-    if (!ch.memberIds.contains(userId)) {
-      ch.memberIds.add(userId);
-      notifyListeners();
-    }
-  }
-
-  /// Renames a group channel.
-  void renameChannel(String channelId, String newName) {
-    final ch = channelById(channelId);
-    if (ch == null) return;
-    ch.name = newName;
+    // Guard: only members can send messages
+    if (!ch.memberIds.contains(_currentUser.id)) return;
+    final msg = MockMessage(
+      id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
+      senderId: _currentUser.id,
+      text: text,
+      createdAt: DateTime.now(),
+    );
+    ch.messages.add(msg);
+    // Increment unread for other members
+    ch.unreadCount = 0;
     notifyListeners();
   }
 
@@ -488,98 +481,10 @@ class MockDataService extends ChangeNotifier {
       senderId: _currentUser.id,
       text: text,
       createdAt: DateTime.now(),
-      isRead: false,
       attachments: attachments,
     );
-    ch.messages = [...ch.messages, msg];
-    _channels.remove(ch);
-    _channels.insert(0, ch);
-    notifyListeners();
-  }
-
-  // Notifications
-  late final List<MockNotification> _notifications =
-      _buildInitialNotifications();
-  List<MockNotification> get notifications => _notifications;
-  int get unreadNotificationCount =>
-      _notifications.where((n) => !n.isRead).length;
-
-  void markAllNotificationsRead() {
-    for (final n in _notifications) {
-      n.isRead = true;
-    }
-    notifyListeners();
-  }
-
-  void markNotificationRead(String id) {
-    final n = _notifications.firstWhere(
-      (n) => n.id == id,
-      orElse: () => _notifications.first,
-    );
-    n.isRead = true;
-    notifyListeners();
-  }
-
-  List<MockNotification> _buildInitialNotifications() {
-    final now = DateTime.now();
-    return [
-      MockNotification(
-        id: 'notif_1',
-        fromUserId: 'user_2',
-        channelId: 'ch_1',
-        messageId: 'm_1_5',
-        text: '@Alex Chen can you confirm?',
-        createdAt: now.subtract(const Duration(minutes: 5)),
-        isRead: false,
-      ),
-      MockNotification(
-        id: 'notif_2',
-        fromUserId: 'user_4',
-        channelId: 'ch_2',
-        messageId: 'm_2_2',
-        text: 'Absolutely! I\'ve prepared the slide deck.',
-        createdAt: now.subtract(const Duration(hours: 2)),
-        isRead: false,
-      ),
-      MockNotification(
-        id: 'notif_3',
-        fromUserId: 'user_3',
-        channelId: 'ch_4',
-        messageId: 'm_4_1',
-        text: '@Alex CI pipeline is fixed. All tests passing.',
-        createdAt: now.subtract(const Duration(hours: 5)),
-        isRead: true,
-      ),
-      MockNotification(
-        id: 'notif_4',
-        fromUserId: 'user_5',
-        channelId: 'ch_4',
-        messageId: 'm_4_2',
-        text: 'Great work! @Alex let\'s merge.',
-        createdAt: now.subtract(const Duration(hours: 6)),
-        isRead: true,
-      ),
-    ];
-  }
-
-  // ── Message operations ──────────────────────────────────────────────────────
-
-  void sendMessage(String channelId, String text) {
-    final ch = channelById(channelId);
-    if (ch == null) return;
-    // Guard: only members can send
-    if (!ch.memberIds.contains(_currentUser.id)) return;
-    final msg = MockMessage(
-      id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
-      senderId: _currentUser.id,
-      text: text,
-      createdAt: DateTime.now(),
-      isRead: false,
-    );
-    ch.messages = [...ch.messages, msg];
-    // Move channel to top
-    _channels.remove(ch);
-    _channels.insert(0, ch);
+    ch.messages.add(msg);
+    ch.unreadCount = 0;
     notifyListeners();
   }
 
@@ -588,10 +493,9 @@ class MockDataService extends ChangeNotifier {
     if (ch == null) return;
     // Guard: only members can reply in threads
     if (!ch.memberIds.contains(_currentUser.id)) return;
-    final msg = ch.messages.firstWhere(
-      (m) => m.id == messageId,
-      orElse: () => ch.messages.first,
-    );
+    final tIdx = ch.messages.indexWhere((m) => m.id == messageId);
+    if (tIdx == -1) return;
+    final msg = ch.messages[tIdx];
     final reply = MockMessage(
       id: 'reply_${DateTime.now().millisecondsSinceEpoch}',
       senderId: _currentUser.id,
@@ -605,10 +509,9 @@ class MockDataService extends ChangeNotifier {
   void toggleReaction(String channelId, String messageId, String emoji) {
     final ch = channelById(channelId);
     if (ch == null) return;
-    final msg = ch.messages.firstWhere(
-      (m) => m.id == messageId,
-      orElse: () => ch.messages.first,
-    );
+    final rIdx = ch.messages.indexWhere((m) => m.id == messageId);
+    if (rIdx == -1) return;
+    final msg = ch.messages[rIdx];
     final uid = _currentUser.id;
     final existing = msg.reactions.where((r) => r.emoji == emoji).toList();
     if (existing.isEmpty) {
@@ -624,7 +527,9 @@ class MockDataService extends ChangeNotifier {
           msg.reactions = msg.reactions.where((r) => r.emoji != emoji).toList();
         } else {
           msg.reactions = msg.reactions.map((react) {
-            if (react.emoji == emoji) return react.copyWith(userIds: newIds);
+            if (react.emoji == emoji) {
+              return react.copyWith(userIds: newIds);
+            }
             return react;
           }).toList();
         }
@@ -643,10 +548,9 @@ class MockDataService extends ChangeNotifier {
   void togglePin(String channelId, String messageId) {
     final ch = channelById(channelId);
     if (ch == null) return;
-    final msg = ch.messages.firstWhere(
-      (m) => m.id == messageId,
-      orElse: () => ch.messages.first,
-    );
+    final idx = ch.messages.indexWhere((m) => m.id == messageId);
+    if (idx == -1) return;
+    final msg = ch.messages[idx];
     msg.isPinned = !msg.isPinned;
     notifyListeners();
   }
@@ -654,10 +558,9 @@ class MockDataService extends ChangeNotifier {
   void deleteMessage(String channelId, String messageId) {
     final ch = channelById(channelId);
     if (ch == null) return;
-    final msg = ch.messages.firstWhere(
-      (m) => m.id == messageId,
-      orElse: () => ch.messages.first,
-    );
+    final idx = ch.messages.indexWhere((m) => m.id == messageId);
+    if (idx == -1) return;
+    final msg = ch.messages[idx];
     msg.isDeleted = true;
     notifyListeners();
   }
@@ -665,10 +568,9 @@ class MockDataService extends ChangeNotifier {
   void editMessage(String channelId, String messageId, String newText) {
     final ch = channelById(channelId);
     if (ch == null) return;
-    final msg = ch.messages.firstWhere(
-      (m) => m.id == messageId,
-      orElse: () => ch.messages.first,
-    );
+    final idx = ch.messages.indexWhere((m) => m.id == messageId);
+    if (idx == -1) return;
+    final msg = ch.messages[idx];
     msg.editedText = newText;
     notifyListeners();
   }
@@ -725,6 +627,9 @@ class MockDataService extends ChangeNotifier {
   }
 
   void logout() {
+    // Remove any dynamically-registered users so they don't accumulate
+    // across sessions and don't appear in the contact list after sign-out.
+    _allUsers.removeWhere((u) => u.id.startsWith('user_new_'));
     _currentUser = _allUsers[0];
     notifyListeners();
   }
@@ -732,4 +637,77 @@ class MockDataService extends ChangeNotifier {
   // ── Channel list filtered by current user ───────────────────────────────────
   List<MockChannel> get myChannels =>
       _channels.where((c) => c.memberIds.contains(_currentUser.id)).toList();
+
+  // ── Notifications ───────────────────────────────────────────────────────────
+
+  final List<MockNotification> _notifications = _buildInitialNotifications();
+
+  List<MockNotification> get notifications => List.unmodifiable(_notifications);
+
+  int get unreadNotificationCount =>
+      _notifications.where((n) => !n.isRead).length;
+
+  static List<MockNotification> _buildInitialNotifications() {
+    final now = DateTime.now();
+    return [
+      MockNotification(
+        id: 'notif_1',
+        fromUserId: 'user_2',
+        channelId: 'ch_1',
+        messageId: 'm_1_5',
+        text: '@Alex Chen can you confirm?',
+        createdAt: now.subtract(const Duration(minutes: 5)),
+        isRead: false,
+      ),
+      MockNotification(
+        id: 'notif_2',
+        fromUserId: 'user_3',
+        channelId: 'ch_2',
+        messageId: 'm_2_4',
+        text: 'Shipping the final build tonight! 🚀',
+        createdAt: now.subtract(const Duration(minutes: 10)),
+        isRead: false,
+      ),
+      MockNotification(
+        id: 'notif_3',
+        fromUserId: 'user_4',
+        channelId: 'ch_2',
+        messageId: 'm_2_2',
+        text: 'Absolutely! I\'ve prepared the slide deck.',
+        createdAt: now.subtract(const Duration(hours: 2, minutes: 30)),
+        isRead: true,
+      ),
+    ];
+  }
+
+  void markNotificationRead(String notifId) {
+    try {
+      final n = _notifications.firstWhere((n) => n.id == notifId);
+      n.isRead = true;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  void markAllNotificationsRead() {
+    for (final n in _notifications) {
+      n.isRead = true;
+    }
+    notifyListeners();
+  }
+
+  void addMemberToChannel(String channelId, String userId) {
+    final ch = channelById(channelId);
+    if (ch == null) return;
+    if (!ch.memberIds.contains(userId)) {
+      ch.memberIds.add(userId);
+      notifyListeners();
+    }
+  }
+
+  void updateChannelName(String channelId, String newName) {
+    final ch = channelById(channelId);
+    if (ch == null) return;
+    ch.name = newName;
+    notifyListeners();
+  }
 }

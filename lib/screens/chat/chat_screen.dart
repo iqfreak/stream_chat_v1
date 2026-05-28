@@ -14,14 +14,25 @@ class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key, required this.channelId});
 
   @override
-  State&lt;ChatScreen&gt; createState() =&gt; _ChatScreenState();
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State&lt;ChatScreen&gt; {
+class _ChatScreenState extends State<ChatScreen> {
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   final _picker = ImagePicker();
   final bool _showTyping = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Mark channel as read when the chat screen is opened
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<MockDataService>().markChannelRead(widget.channelId);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -31,7 +42,7 @@ class _ChatScreenState extends State&lt;ChatScreen&gt; {
   }
 
   void _send() {
-    final data = context.read&lt;MockDataService&gt;();
+    final data = context.read<MockDataService>();
     final channel = data.channelById(widget.channelId);
     if (channel == null) return;
     // Guard: non-members cannot send
@@ -65,8 +76,8 @@ class _ChatScreenState extends State&lt;ChatScreen&gt; {
     );
   }
 
-  Future&lt;void&gt; _attach() async {
-    final data = context.read&lt;MockDataService&gt;();
+  Future<void> _attach() async {
+    final data = context.read<MockDataService>();
     final channel = data.channelById(widget.channelId);
     if (channel == null) return;
     // Guard: non-members cannot send attachments
@@ -74,21 +85,21 @@ class _ChatScreenState extends State&lt;ChatScreen&gt; {
       _showNotMemberSnackbar();
       return;
     }
-    final source = await showModalBottomSheet&lt;ImageSource&gt;(
+    final source = await showModalBottomSheet<ImageSource>(
       context: context,
-      builder: (_) =&gt; SafeArea(
+      builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library),
               title: const Text('Choose from Gallery'),
-              onTap: () =&gt; Navigator.pop(context, ImageSource.gallery),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt),
               title: const Text('Take a Photo'),
-              onTap: () =&gt; Navigator.pop(context, ImageSource.camera),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
           ],
         ),
@@ -97,7 +108,7 @@ class _ChatScreenState extends State&lt;ChatScreen&gt; {
     if (source == null) return;
     final file = await _picker.pickImage(source: source);
     if (file == null || !mounted) return;
-    context.read&lt;MockDataService&gt;().sendMessageWithAttachment(
+    context.read<MockDataService>().sendMessageWithAttachment(
       widget.channelId,
       '',
       [MockAttachment(type: 'image', name: file.name, url: file.path)],
@@ -110,7 +121,7 @@ class _ChatScreenState extends State&lt;ChatScreen&gt; {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) =&gt; MessageActionSheet(
+      builder: (_) => MessageActionSheet(
         message: msg,
         channelId: widget.channelId,
       ),
@@ -119,7 +130,7 @@ class _ChatScreenState extends State&lt;ChatScreen&gt; {
 
   @override
   Widget build(BuildContext context) {
-    final data = context.watch&lt;MockDataService&gt;();
+    final data = context.watch<MockDataService>();
     final channel = data.channelById(widget.channelId);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -132,55 +143,84 @@ class _ChatScreenState extends State&lt;ChatScreen&gt; {
 
     final me = data.currentUser;
     final isMember = channel.memberIds.contains(me.id);
-    final messages = channel.messages;
 
-    String title;
-    String subtitle;
-    if (channel.isGroup) {
-      title = channel.name;
-      subtitle = '${channel.memberIds.length} members';
-    } else {
-      final otherId = channel.memberIds
-          .firstWhere((id) =&gt; id != me.id, orElse: () =&gt; me.id);
-      final other = data.userById(otherId);
-      title = other?.name ?? channel.name;
-      subtitle = other?.isOnline == true ? 'Online' : 'Last seen recently';
+    // For DMs, find the other user for the AppBar title & online status
+    MockUser? otherUser;
+    if (!channel.isGroup) {
+      otherUser = channel.memberIds
+          .where((id) => id != me.id)
+          .map((id) => data.userById(id))
+          .whereType<MockUser>()
+          .firstOrNull;
     }
 
     return Scaffold(
       appBar: AppBar(
-        leading: BackButton(onPressed: () =&gt; context.pop()),
+        leading: BackButton(onPressed: () => context.go('/channels')),
+        titleSpacing: 0,
         title: GestureDetector(
-          onTap: () =&gt; context.push('/channels/${widget.channelId}/info'),
+          onTap: () => context.push('/channels/${widget.channelId}/info'),
           child: Row(
             children: [
-              if (!channel.isGroup) ...[
+              if (channel.isGroup)
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.primary, AppColors.accent],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child:
+                      const Icon(Icons.group, color: Colors.white, size: 18),
+                )
+              else
                 UserAvatar(
-                  name: title,
-                  avatarUrl: channel.avatarUrl,
+                  name: otherUser?.name ?? channel.name,
+                  avatarUrl: otherUser?.avatarUrl,
                   size: 36,
-                  showOnline: subtitle == 'Online',
+                  showOnline: otherUser?.isOnline ?? false,
                 ),
-                const SizedBox(width: 10),
-              ],
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w700)),
                     Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: subtitle == 'Online'
-                            ? AppColors.online
-                            : isDark
-                                ? AppColors.textDarkSecondary
-                                : AppColors.textLightSecondary,
+                      channel.isGroup
+                          ? channel.name
+                          : (otherUser?.name ?? channel.name),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    if (!channel.isGroup && otherUser != null)
+                      Text(
+                        otherUser.isOnline ? 'Online' : 'Offline',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: otherUser.isOnline
+                              ? AppColors.online
+                              : (isDark
+                                  ? AppColors.textDarkSecondary
+                                  : AppColors.textLightSecondary),
+                        ),
+                      )
+                    else if (channel.isGroup)
+                      Text(
+                        '${channel.memberIds.length} members',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? AppColors.textDarkSecondary
+                              : AppColors.textLightSecondary,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -190,22 +230,20 @@ class _ChatScreenState extends State&lt;ChatScreen&gt; {
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),
-            onPressed: () =&gt;
+            onPressed: () =>
                 context.push('/channels/${widget.channelId}/info'),
           ),
         ],
       ),
       body: Column(
         children: [
-          // Non-member banner
-          if (channel.isGroup &amp;&amp; !isMember)
+          // Non-member warning banner
+          if (channel.isGroup && !isMember)
             Container(
               width: double.infinity,
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              color: isDark
-                  ? AppColors.darkCard
-                  : const Color(0xFFFFF3CD),
+              color: isDark ? AppColors.darkCard : const Color(0xFFFFF3CD),
               child: Row(
                 children: [
                   Icon(
@@ -232,22 +270,32 @@ class _ChatScreenState extends State&lt;ChatScreen&gt; {
             ),
           // Message list
           Expanded(
-            child: messages.isEmpty
+            child: channel.messages.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.chat_bubble_outline,
-                            size: 64,
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          size: 64,
+                          color: isDark
+                              ? AppColors.textDarkSecondary
+                              : AppColors.textLightSecondary,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No messages yet',
+                          style: TextStyle(
                             color: isDark
                                 ? AppColors.textDarkSecondary
-                                : AppColors.textLightSecondary),
-                        const SizedBox(height: 12),
-                        const Text('No messages yet'),
+                                : AppColors.textLightSecondary,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         Text(
-                          'Say hello!',
+                          'Say hello! 👋',
                           style: TextStyle(
+                            fontSize: 13,
                             color: isDark
                                 ? AppColors.textDarkSecondary
                                 : AppColors.textLightSecondary,
@@ -259,150 +307,138 @@ class _ChatScreenState extends State&lt;ChatScreen&gt; {
                 : ListView.builder(
                     controller: _scrollCtrl,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 16),
-                    itemCount: messages.length,
+                        horizontal: 12, vertical: 8),
+                    itemCount: channel.messages.length,
                     itemBuilder: (context, i) {
-                      final msg = messages[i];
+                      final msg = channel.messages[i];
                       final isMine = msg.senderId == me.id;
                       final sender = data.userById(msg.senderId);
-                      final showAvatar = !isMine &amp;&amp;
-                          (i == 0 ||
-                              messages[i - 1].senderId != msg.senderId);
+
+                      // Show sender avatar + name for the first message or
+                      // after a different sender
+                      final showHeader = i == 0 ||
+                          channel.messages[i - 1].senderId != msg.senderId;
+
                       return _MessageBubble(
                         message: msg,
                         isMine: isMine,
                         sender: sender,
-                        showAvatar: showAvatar,
+                        showHeader: showHeader,
                         isDark: isDark,
                         channelId: widget.channelId,
-                        // Bug 2 fix: never open the action sheet on deleted messages
-                        onLongPress: msg.isDeleted ? null : () =&gt; _showActionSheet(msg),
-                        onThreadTap: () =&gt; context.push(
+                        onLongPress: () => _showActionSheet(msg),
+                        onThreadTap: () => context.push(
                           '/channels/${widget.channelId}/chat/${msg.id}/thread',
                         ),
                       );
                     },
                   ),
           ),
-          // Typing indicator
-          if (_showTyping)
-            Padding(
-              padding: const EdgeInsets.only(left: 16, bottom: 4),
-              child: Row(
-                children: [
-                  Text(
-                    'Sarah is typing...',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark
-                          ? AppColors.textDarkSecondary
-                          : AppColors.textLightSecondary,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          // Input bar
-          _InputBar(
-            controller: _inputCtrl,
-            onSend: _send,
-            onAttach: _attach,
-            isDark: isDark,
-            enabled: isMember,
-          ),
+          // Input area
+          _buildInputArea(context, isDark, isMember, channel.isGroup),
         ],
       ),
     );
   }
-}
 
-// ─── Input Bar ──────────────────────────────────────────────────────────────
+  Widget _buildInputArea(
+      BuildContext context, bool isDark, bool isMember, bool isGroup) {
+    // Non-members of groups see a locked bar
+    if (isGroup && !isMember) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkAppBar : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color:
+                  isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB),
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.lock_outline,
+              size: 16,
+              color: isDark
+                  ? AppColors.textDarkSecondary
+                  : AppColors.textLightSecondary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'You cannot send messages in this group.',
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark
+                    ? AppColors.textDarkSecondary
+                    : AppColors.textLightSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
-class _InputBar extends StatelessWidget {
-  final TextEditingController controller;
-  final VoidCallback onSend;
-  final VoidCallback onAttach;
-  final bool isDark;
-  final bool enabled;
-
-  const _InputBar({
-    required this.controller,
-    required this.onSend,
-    required this.onAttach,
-    required this.isDark,
-    this.enabled = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : Colors.white,
+        color: isDark ? AppColors.darkAppBar : Colors.white,
         border: Border(
           top: BorderSide(
-            color: isDark
-                ? AppColors.darkDivider
-                : const Color(0xFFE5E7EB),
+            color:
+                isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB),
           ),
         ),
       ),
       child: SafeArea(
         top: false,
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             IconButton(
-              onPressed: enabled ? onAttach : null,
               icon: Icon(
                 Icons.attach_file,
-                color: enabled
-                    ? (isDark
-                        ? AppColors.textDarkSecondary
-                        : AppColors.textLightSecondary)
-                    : (isDark
-                        ? AppColors.textDarkSecondary.withValues(alpha: 0.4)
-                        : AppColors.textLightSecondary
-                            .withValues(alpha: 0.4)),
+                color: isDark
+                    ? AppColors.textDarkSecondary
+                    : AppColors.textLightSecondary,
               ),
+              onPressed: _attach,
             ),
             Expanded(
               child: TextField(
-                controller: controller,
-                enabled: enabled,
-                maxLines: null,
-                keyboardType: TextInputType.multiline,
+                controller: _inputCtrl,
+                maxLines: 6,
+                minLines: 1,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                  hintText:
-                      enabled ? 'Type a message...' : 'You cannot send messages here',
+                  hintText: 'Message...',
+                  filled: true,
+                  fillColor:
+                      isDark ? AppColors.darkCard : const Color(0xFFF0F2F5),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
                   ),
-                  filled: true,
-                  fillColor: isDark
-                      ? AppColors.darkBackground
-                      : const Color(0xFFF3F4F6),
                   contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 10),
                 ),
-                onSubmitted: enabled ? (_) =&gt; onSend() : null,
+                onSubmitted: (_) => _send(),
               ),
             ),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: enabled ? onSend : null,
+              onTap: _send,
               child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: enabled
-                      ? AppColors.primary
-                      : AppColors.primary.withValues(alpha: 0.4),
+                width: 42,
+                height: 42,
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.send, color: Colors.white, size: 18),
+                child: const Icon(Icons.send_rounded,
+                    color: Colors.white, size: 20),
               ),
             ),
           ],
@@ -412,137 +448,117 @@ class _InputBar extends StatelessWidget {
   }
 }
 
-// ─── Message Bubble ─────────────────────────────────────────────────────────
+// ─── Message Bubble ──────────────────────────────────────────────────────────
 
 class _MessageBubble extends StatelessWidget {
   final MockMessage message;
   final bool isMine;
   final MockUser? sender;
-  final bool showAvatar;
+  final bool showHeader;
   final bool isDark;
   final String channelId;
-  // Bug 2 fix: nullable so deleted messages receive null (no long-press handler)
-  final VoidCallback? onLongPress;
+  final VoidCallback onLongPress;
   final VoidCallback onThreadTap;
 
   const _MessageBubble({
     required this.message,
     required this.isMine,
     required this.sender,
-    required this.showAvatar,
+    required this.showHeader,
     required this.isDark,
     required this.channelId,
-    this.onLongPress,
+    required this.onLongPress,
     required this.onThreadTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isDeleted = message.isDeleted;
-    final bgColor = isDeleted
-        ? (isDark
-            ? AppColors.darkCard.withValues(alpha: 0.5)
-            : const Color(0xFFF3F4F6))
-        : isMine
-            ? AppColors.primary
-            : (isDark ? AppColors.darkCard : Colors.white);
-
-    final textColor = isDeleted
-        ? (isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)
-        : isMine
-            ? Colors.white
-            : (isDark ? AppColors.textDark : AppColors.textLight);
+    final bubbleColor = isMine
+        ? AppColors.sentBubble
+        : (isDark
+            ? AppColors.receivedBubbleDark
+            : AppColors.receivedBubbleLight);
+    final textColor = isMine
+        ? Colors.white
+        : (isDark ? AppColors.textDark : AppColors.textLight);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: EdgeInsets.only(
+        top: showHeader ? 12 : 2,
+        bottom: 2,
+      ),
       child: Row(
         mainAxisAlignment:
             isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (!isMine)
-            SizedBox(
-              width: 36,
-              child: showAvatar
-                  ? UserAvatar(
-                      name: sender?.name ?? '?',
-                      avatarUrl: sender?.avatarUrl,
-                      size: 32,
-                    )
-                  : const SizedBox(),
-            ),
+          if (!isMine) ...[
+            if (showHeader)
+              UserAvatar(
+                name: sender?.name ?? '?',
+                avatarUrl: sender?.avatarUrl,
+                size: 28,
+              )
+            else
+              const SizedBox(width: 28),
+            const SizedBox(width: 6),
+          ],
           Flexible(
             child: GestureDetector(
               onLongPress: onLongPress,
               child: Container(
-                margin: EdgeInsets.only(
-                  left: isMine ? 60 : 4,
-                  right: isMine ? 0 : 60,
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.72,
                 ),
                 padding: const EdgeInsets.symmetric(
                     horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: bgColor,
+                  color: message.isDeleted
+                      ? (isDark
+                          ? AppColors.darkCard
+                          : const Color(0xFFF5F6FA))
+                      : bubbleColor,
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(18),
                     topRight: const Radius.circular(18),
-                    bottomLeft: Radius.circular(isMine ? 18 : 4),
-                    bottomRight: Radius.circular(isMine ? 4 : 18),
+                    bottomLeft:
+                        Radius.circular(isMine ? 18 : (showHeader ? 4 : 18)),
+                    bottomRight:
+                        Radius.circular(isMine ? (showHeader ? 4 : 18) : 18),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
                 ),
                 child: Column(
-                  crossAxisAlignment: isMine
-                      ? CrossAxisAlignment.end
-                      : CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Sender name (group chats only, others' messages)
-                    if (!isMine &amp;&amp; showAvatar &amp;&amp; sender != null)
+                    if (showHeader && !isMine)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
-                          sender!.name,
+                          sender?.name ?? 'Unknown',
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
                             color: AppColors.primary,
                           ),
                         ),
                       ),
-                    // Deleted message
-                    if (isDeleted)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.do_not_disturb_alt,
-                              size: 14, color: textColor),
-                          const SizedBox(width: 4),
-                          Text(
-                            'This message was deleted',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontStyle: FontStyle.italic,
-                              color: textColor,
-                            ),
-                          ),
-                        ],
+                    if (message.isDeleted)
+                      Text(
+                        'This message was deleted',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontStyle: FontStyle.italic,
+                          color: isDark
+                              ? AppColors.textDarkSecondary
+                              : AppColors.textLightSecondary,
+                        ),
                       )
                     else ...[
-                      // Image attachment
-                      if (message.attachments.any((a) =&gt; a.type == 'image'))
-                        _ImageAttachment(
-                          attachment: message.attachments
-                              .firstWhere((a) =&gt; a.type == 'image'),
-                          isDark: isDark,
-                        ),
-                      // Bug 1 fix: use displayText instead of text
-                      // so image-only messages show '📷 Photo' rather than blank.
+                      // Attachments
+                      ...message.attachments.map((a) => _ImageAttachment(
+                            attachment: a,
+                            isDark: isDark,
+                          )),
                       if (message.displayText.isNotEmpty)
                         Text(
                           message.displayText,
@@ -622,7 +638,8 @@ class _MessageBubble extends StatelessWidget {
                             ),
                           ),
                         Text(
-                          timeago.format(message.createdAt, allowFromNow: true),
+                          timeago.format(message.createdAt,
+                              allowFromNow: true),
                           style: TextStyle(
                             fontSize: 10,
                             color: isMine
@@ -675,31 +692,43 @@ class _ImageAttachment extends StatelessWidget {
         child: isLocal
             ? Image.file(
                 File(attachment.url),
-                width: 200,
-                height: 200,
+                width: 220,
+                height: 180,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) =&gt; _broken(isDark),
+                errorBuilder: (_, __, ___) => _BrokenImage(isDark: isDark),
               )
             : Image.network(
                 attachment.url,
-                width: 200,
-                height: 200,
+                width: 220,
+                height: 180,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) =&gt; _broken(isDark),
+                errorBuilder: (_, __, ___) => _BrokenImage(isDark: isDark),
               ),
       ),
     );
   }
+}
 
-  Widget _broken(bool isDark) =&gt; Container(
-        width: 200,
-        height: 200,
-        color: isDark ? AppColors.darkCard : const Color(0xFFF3F4F6),
-        child: Icon(Icons.broken_image_outlined,
-            color: isDark
-                ? AppColors.textDarkSecondary
-                : AppColors.textLightSecondary),
-      );
+class _BrokenImage extends StatelessWidget {
+  final bool isDark;
+  const _BrokenImage({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 220,
+      height: 180,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCard : const Color(0xFFF0F2F5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(
+        Icons.broken_image_outlined,
+        size: 48,
+        color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary,
+      ),
+    );
+  }
 }
 
 // ─── Reactions Row ───────────────────────────────────────────────────────────
@@ -707,28 +736,32 @@ class _ImageAttachment extends StatelessWidget {
 class _ReactionsRow extends StatelessWidget {
   final MockMessage message;
   final String channelId;
+
   const _ReactionsRow({required this.message, required this.channelId});
 
   @override
   Widget build(BuildContext context) {
-    final data = context.read&lt;MockDataService&gt;();
-    final me = data.currentUser;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final data = context.read<MockDataService>();
+
     return Wrap(
       spacing: 4,
       runSpacing: 4,
       children: message.reactions.map((r) {
-        final reacted = r.userIds.contains(me.id);
+        final mine = r.userIds.contains(data.currentUser.id);
         return GestureDetector(
-          onTap: () =&gt; data.toggleReaction(channelId, message.id, r.emoji),
+          onTap: () => data.toggleReaction(channelId, message.id, r.emoji),
           child: Container(
             padding:
-                const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: reacted
+              color: mine
                   ? AppColors.primary.withValues(alpha: 0.2)
-                  : Colors.black.withValues(alpha: 0.1),
+                  : (isDark
+                      ? AppColors.reactionBg
+                      : Colors.grey.withValues(alpha: 0.15)),
               borderRadius: BorderRadius.circular(12),
-              border: reacted
+              border: mine
                   ? Border.all(
                       color: AppColors.primary.withValues(alpha: 0.5))
                   : null,

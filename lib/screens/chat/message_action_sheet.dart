@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../services/mock_data.dart';
@@ -22,6 +23,7 @@ class MessageActionSheet extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMine = message.senderId == data.currentUser.id;
     final bgColor = isDark ? AppColors.darkSurface : Colors.white;
+    final hasText = message.displayText.isNotEmpty;
 
     return Container(
       decoration: BoxDecoration(
@@ -91,6 +93,34 @@ class MessageActionSheet extends StatelessWidget {
               );
             },
           ),
+          // Copy — only shown when there is text to copy
+          if (hasText)
+            _ActionTile(
+              icon: Icons.copy_outlined,
+              label: 'Copy Text',
+              color: const Color(0xFF007AFF),
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: message.displayText));
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Message copied to clipboard'),
+                    behavior: SnackBarBehavior.floating,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+          // Forward
+          _ActionTile(
+            icon: Icons.forward_outlined,
+            label: 'Forward Message',
+            color: const Color(0xFF5856D6),
+            onTap: () {
+              Navigator.pop(context);
+              _showForwardSheet(context, data);
+            },
+          ),
           _ActionTile(
             icon: message.isPinned
                 ? Icons.push_pin
@@ -136,10 +166,116 @@ class MessageActionSheet extends StatelessWidget {
     );
   }
 
+  /// Shows a bottom sheet to pick a channel to forward the message to.
+  void _showForwardSheet(BuildContext context, MockDataService data) {
+    final channels = data.myChannels
+        .where((c) => c.id != channelId)
+        .toList();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return DraggableScrollableSheet(
+          initialChildSize: 0.5,
+          maxChildSize: 0.85,
+          minChildSize: 0.3,
+          expand: false,
+          builder: (_, scrollCtrl) => Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : Colors.white,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.black12,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                  child: Text(
+                    'Forward to...',
+                    style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+                const Divider(height: 0),
+                if (channels.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('No other chats to forward to.'),
+                  )
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollCtrl,
+                      itemCount: channels.length,
+                      itemBuilder: (_, i) {
+                        final ch = channels[i];
+                        final otherUser = ch.isGroup
+                            ? null
+                            : ch.memberIds
+                                .where((id) => id != data.currentUser.id)
+                                .map((id) => data.userById(id))
+                                .whereType<MockUser>()
+                                .firstOrNull;
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor:
+                                AppColors.primary.withValues(alpha: 0.15),
+                            child: Icon(
+                              ch.isGroup ? Icons.group : Icons.person,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          title: Text(
+                            ch.isGroup
+                                ? ch.name
+                                : (otherUser?.name ?? ch.name),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          onTap: () {
+                            // Forward: send the display text (and attachments)
+                            // as a new message in the target channel.
+                            final fwdText =
+                                '↪ ${message.displayText}';
+                            data.sendMessage(ch.id, fwdText);
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Forwarded to ${ch.isGroup ? ch.name : (otherUser?.name ?? ch.name)}',
+                                ),
+                                behavior: SnackBarBehavior.floating,
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _showEditDialog(BuildContext context, MockDataService data) {
-    // Use the raw text (or previously edited text) — NOT displayText, which
-    // would incorrectly pre-fill '📷 Photo' for image-only messages.
-    final ctrl = TextEditingController(text: message.editedText ?? message.text);
+    final ctrl =
+        TextEditingController(text: message.editedText ?? message.text);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(

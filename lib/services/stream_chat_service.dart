@@ -65,7 +65,10 @@ class StreamChatService extends ChangeNotifier {
 
   static String _generateToken(String userId) {
     final jwt = JWT({'user_id': userId});
-    return jwt.sign(SecretKey(kStreamApiSecret));
+    return jwt.sign(
+      SecretKey(kStreamApiSecret),
+      issuedAt: DateTime.now().subtract(const Duration(seconds: 5)),
+    );
   }
 
   // ─── Auth ─────────────────────────────────────────────────────────────────

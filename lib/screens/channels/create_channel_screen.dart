@@ -19,12 +19,26 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
   final _nameCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
   bool _creating = false;
+  bool _searching = false;
+  List<AppUser> _searchResults = [];
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _onSearchChanged(String query) async {
+    setState(() => _search = query);
+    if (query.trim().length < 2) {
+      setState(() { _searchResults = []; _searching = false; });
+      return;
+    }
+    setState(() => _searching = true);
+    final results = await context.read<StreamChatService>().searchUsers(query);
+    if (!mounted) return;
+    setState(() { _searchResults = results; _searching = false; });
   }
 
   Future<void> _create() async {
@@ -36,22 +50,15 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a group name')));
       return;
     }
-
     setState(() => _creating = true);
     final data = context.read<StreamChatService>();
     final me = data.currentUser.id;
     final memberIds = [me, ..._selected];
-
     final channelName = _isGroup
         ? _nameCtrl.text.trim()
         : (data.userById(_selected.first)?.name ?? 'DM');
-
     try {
-      final channelId = await data.createChannel(
-        isGroup: _isGroup,
-        name: channelName,
-        memberIds: memberIds,
-      );
+      final channelId = await data.createChannel(isGroup: _isGroup, name: channelName, memberIds: memberIds);
       if (!mounted) return;
       context.go('/channels/$channelId/chat');
     } catch (e) {
@@ -66,10 +73,14 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
   @override
   Widget build(BuildContext context) {
     final data = context.watch<StreamChatService>();
-    final others = data.otherUsers
-        .where((u) => _search.isEmpty || u.name.toLowerCase().contains(_search.toLowerCase()) || u.email.toLowerCase().contains(_search.toLowerCase()))
-        .toList();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Show search results when actively searching, otherwise show cached users
+    final List<AppUser> displayList = _search.trim().length >= 2
+        ? _searchResults
+        : data.otherUsers
+            .where((u) => _search.isEmpty || u.name.toLowerCase().contains(_search.toLowerCase()))
+            .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -78,7 +89,11 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
             : const BackButton(),
         title: Text(widget.isNewUser ? 'Start a Chat' : 'New Chat'),
         actions: [
-          if (widget.isNewUser) TextButton(onPressed: _skipToChannels, child: Text('Skip', style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary))),
+          if (widget.isNewUser)
+            TextButton(
+              onPressed: _skipToChannels,
+              child: Text('Skip', style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
+            ),
           _creating
               ? const Padding(padding: EdgeInsets.only(right: 16), child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))))
               : TextButton(onPressed: _create, child: const Text('Create', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w700))),
@@ -86,6 +101,7 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
       ),
       body: Column(
         children: [
+          // Welcome banner (new user only)
           if (widget.isNewUser)
             Container(
               width: double.infinity,
@@ -102,11 +118,12 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('Welcome to StreamChat!', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: isDark ? AppColors.textDark : AppColors.textLight)),
                   const SizedBox(height: 2),
-                  Text('Start by opening a DM or creating a group.', style: TextStyle(fontSize: 12, color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
+                  Text('Search by name to find and start chatting.', style: TextStyle(fontSize: 12, color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
                 ])),
               ]),
             ),
 
+          // DM / Group toggle
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Row(children: [
@@ -116,12 +133,14 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
             ]),
           ),
 
+          // Group name field
           if (_isGroup)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Group name', prefixIcon: Icon(Icons.group_outlined))),
             ),
 
+          // Selected member chips
           if (_selected.isNotEmpty)
             SizedBox(
               height: 56,
@@ -133,8 +152,8 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: Chip(
-                        avatar: UserAvatar(name: data.userById(id)!.name, size: 24, avatarUrl: data.userById(id)!.avatarUrl),
-                        label: Text(data.userById(id)!.name),
+                        avatar: UserAvatar(name: data.userById(id)?.name ?? id, size: 24, avatarUrl: data.userById(id)?.avatarUrl),
+                        label: Text(data.userById(id)?.name ?? id),
                         deleteIcon: const Icon(Icons.close, size: 16),
                         onDeleted: () => setState(() => _selected.remove(id)),
                       ),
@@ -143,23 +162,57 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
               ),
             ),
 
+          // Search field
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: TextField(controller: _searchCtrl, onChanged: (v) => setState(() => _search = v), decoration: const InputDecoration(hintText: 'Search members...', prefixIcon: Icon(Icons.search))),
+            child: TextField(
+              controller: _searchCtrl,
+              onChanged: _onSearchChanged,
+              decoration: InputDecoration(
+                hintText: 'Search by name or username...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searching
+                    ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)))
+                    : _search.isNotEmpty
+                        ? IconButton(icon: const Icon(Icons.close), onPressed: () { _searchCtrl.clear(); _onSearchChanged(''); })
+                        : null,
+              ),
+            ),
           ),
 
+          // Hint when search is short but not empty
+          if (_search.trim().isNotEmpty && _search.trim().length < 2)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Text('Type at least 2 characters to search all users', style: TextStyle(fontSize: 12, color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
+            ),
+
+          // User list
           Expanded(
-            child: others.isEmpty
-                ? Center(child: Text('No other users found', style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)))
+            child: displayList.isEmpty && !_searching
+                ? Center(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.person_search, size: 48, color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary),
+                      const SizedBox(height: 12),
+                      Text(
+                        _search.trim().length >= 2 ? 'No users found for "$_search"' : 'No users yet',
+                        style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary),
+                      ),
+                      if (_search.trim().length < 2) ...[
+                        const SizedBox(height: 6),
+                        Text('Search by name to find people', style: TextStyle(fontSize: 13, color: isDark ? AppColors.textDarkSecondary.withValues(alpha: 0.7) : AppColors.textLightSecondary.withValues(alpha: 0.7))),
+                      ],
+                    ]),
+                  )
                 : ListView.builder(
-                    itemCount: others.length,
+                    itemCount: displayList.length,
                     itemBuilder: (context, i) {
-                      final user = others[i];
+                      final user = displayList[i];
                       final selected = _selected.contains(user.id);
                       return ListTile(
                         leading: UserAvatar(name: user.name, avatarUrl: user.avatarUrl, size: 44, showOnline: user.isOnline),
                         title: Text(user.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text(user.email, style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary, fontSize: 12)),
+                        subtitle: Text(user.email.isNotEmpty ? user.email : user.id, style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary, fontSize: 12)),
                         trailing: selected ? const CircleAvatar(radius: 12, backgroundColor: AppColors.primary, child: Icon(Icons.check, color: Colors.white, size: 14)) : null,
                         onTap: () {
                           setState(() {

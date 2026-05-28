@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../services/mock_data.dart';
+import '../services/stream_chat_service.dart';
 
 class BottomNavScaffold extends StatelessWidget {
   final Widget child;
@@ -28,7 +28,7 @@ class BottomNavScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final data = context.watch<MockDataService>();
+    final data = context.watch<StreamChatService>();
     final unread = data.unreadNotificationCount;
 
     return Scaffold(

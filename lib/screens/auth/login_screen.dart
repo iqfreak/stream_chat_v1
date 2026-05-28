@@ -1,13 +1,12 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
-import '../../services/mock_data.dart';
+import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
-
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
@@ -29,59 +28,37 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _loading = true;
-      _errorMsg = null;
-    });
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    final data = context.read<MockDataService>();
-    final ok = data.login(_emailCtrl.text.trim(), _passCtrl.text);
-    if (ok) {
-      context.read<AppState>().signIn();
-      context.go('/channels');
-    } else {
-      setState(() {
-        _loading = false;
-        _errorMsg = 'Invalid email or password. Try alex@streamchat.io';
-      });
+    setState(() { _loading = true; _errorMsg = null; });
+    try {
+      final ok = await context.read<StreamChatService>()
+          .login(_emailCtrl.text.trim(), _passCtrl.text);
+      if (!mounted) return;
+      if (ok) {
+        context.read<AppState>().signIn();
+        context.go('/channels');
+      } else {
+        setState(() { _loading = false; _errorMsg = 'Invalid email or password.'; });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _loading = false; _errorMsg = 'Login failed: $e'; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? AppColors.darkBg : AppColors.lightBg;
-
     return Scaffold(
-      backgroundColor: bg,
+      backgroundColor: isDark ? AppColors.darkBg : AppColors.lightBg,
       body: Stack(
         children: [
           if (isDark) ...[
-            Positioned(
-              top: -80,
-              right: -60,
-              child: Container(
-                width: 260,
-                height: 260,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -60,
-              left: -40,
-              child: Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
+            Positioned(top: -80, right: -60,
+              child: Container(width: 260, height: 260,
+                decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.15), shape: BoxShape.circle))),
+            Positioned(bottom: -60, left: -40,
+              child: Container(width: 200, height: 200,
+                decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.12), shape: BoxShape.circle))),
           ],
           SafeArea(
             child: Center(
@@ -93,94 +70,27 @@ class _LoginScreenState extends State<LoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 20),
-                      // Logo
                       Center(
                         child: Container(
-                          width: 72,
-                          height: 72,
+                          width: 72, height: 72,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [AppColors.primary, AppColors.accent],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
+                            gradient: const LinearGradient(colors: [AppColors.primary, AppColors.accent], begin: Alignment.topLeft, end: Alignment.bottomRight),
                             borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.35),
-                                blurRadius: 20,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
+                            boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 8))],
                           ),
-                          child: const Icon(
-                            Icons.chat_rounded,
-                            color: Colors.white,
-                            size: 36,
-                          ),
+                          child: const Icon(Icons.chat_rounded, color: Colors.white, size: 36),
                         ),
                       ),
                       const SizedBox(height: 28),
-                      Center(
-                        child: Text(
-                          'Welcome back',
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                      ),
+                      Center(child: Text('Welcome back', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800))),
                       const SizedBox(height: 6),
-                      Center(
-                        child: Text(
-                          'Sign in to continue',
-                          style: TextStyle(
-                            color: isDark
-                                ? AppColors.textDarkSecondary
-                                : AppColors.textLightSecondary,
-                          ),
-                        ),
-                      ),
+                      Center(child: Text('Sign in to continue', style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary))),
                       const SizedBox(height: 36),
-                      // Hint card
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                              color: AppColors.primary.withValues(alpha: 0.2)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.info_outline,
-                                color: AppColors.primary, size: 16),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Demo: use alex@streamchat.io (any password)',
-                                style: TextStyle(
-                                  color: AppColors.primary,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
                       TextFormField(
                         controller: _emailCtrl,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: 'Email address',
-                          prefixIcon: Icon(Icons.email_outlined),
-                        ),
-                        validator: (v) {
-                          if (v == null || v.isEmpty) return 'Enter your email';
-                          if (!v.contains('@')) return 'Enter a valid email';
-                          return null;
-                        },
+                        decoration: const InputDecoration(labelText: 'Email address', prefixIcon: Icon(Icons.email_outlined)),
+                        validator: (v) { if (v == null || v.isEmpty) return 'Enter your email'; if (!v.contains('@')) return 'Enter a valid email'; return null; },
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -190,57 +100,31 @@ class _LoginScreenState extends State<LoginScreen> {
                           labelText: 'Password',
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
-                            icon: Icon(_obscure
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined),
-                            onPressed: () =>
-                                setState(() => _obscure = !_obscure),
+                            icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                            onPressed: () => setState(() => _obscure = !_obscure),
                           ),
                         ),
-                        validator: (v) {
-                          if (v == null || v.isEmpty) return 'Enter your password';
-                          if (v.length < 6) return 'Min 6 characters';
-                          return null;
-                        },
+                        validator: (v) { if (v == null || v.isEmpty) return 'Enter your password'; if (v.length < 6) return 'Min 6 characters'; return null; },
                       ),
                       if (_errorMsg != null) ...[
                         const SizedBox(height: 12),
-                        Text(
-                          _errorMsg!,
-                          style: const TextStyle(color: AppColors.error, fontSize: 13),
-                        ),
+                        Text(_errorMsg!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
                       ],
                       const SizedBox(height: 28),
                       ElevatedButton(
                         onPressed: _loading ? null : _login,
                         child: _loading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
-                              )
+                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                             : const Text('Sign In'),
                       ),
                       const SizedBox(height: 20),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            "Don't have an account? ",
-                            style: TextStyle(
-                              color: isDark
-                                  ? AppColors.textDarkSecondary
-                                  : AppColors.textLightSecondary,
-                            ),
-                          ),
+                          Text("Don't have an account? ", style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
                           TextButton(
                             onPressed: () => context.go('/register'),
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
+                            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
                             child: const Text('Register'),
                           ),
                         ],

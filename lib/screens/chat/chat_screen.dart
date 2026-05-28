@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import '../../services/mock_data.dart';
+import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/user_avatar.dart';
 import 'message_action_sheet.dart';
@@ -27,7 +27,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // Mark channel as read when the chat screen is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<MockDataService>().markChannelRead(widget.channelId);
+        context.read<StreamChatService>().markChannelRead(widget.channelId);
       }
     });
   }
@@ -40,7 +40,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _send() {
-    final data = context.read<MockDataService>();
+    final data = context.read<StreamChatService>();
     final channel = data.channelById(widget.channelId);
     if (channel == null) return;
     // Guard: non-members cannot send
@@ -75,7 +75,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _attach() async {
-    final data = context.read<MockDataService>();
+    final data = context.read<StreamChatService>();
     final channel = data.channelById(widget.channelId);
     if (channel == null) return;
     // Guard: non-members cannot send attachments
@@ -106,7 +106,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (source == null) return;
     final file = await _picker.pickImage(source: source);
     if (file == null || !mounted) return;
-    context.read<MockDataService>().sendMessageWithAttachment(
+    context.read<StreamChatService>().sendMessageWithAttachment(
       widget.channelId,
       '',
       [MockAttachment(type: 'image', name: file.name, url: file.path)],
@@ -128,7 +128,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final data = context.watch<MockDataService>();
+    final data = context.watch<StreamChatService>();
     final channel = data.channelById(widget.channelId);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -740,7 +740,7 @@ class _ReactionsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final data = context.read<MockDataService>();
+    final data = context.read<StreamChatService>();
 
     return Wrap(
       spacing: 4,

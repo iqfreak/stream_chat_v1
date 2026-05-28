@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/app_state.dart';
-import 'services/mock_data.dart';
+import 'services/stream_chat_service.dart';
 import 'theme/app_theme.dart';
 import 'router/app_router.dart';
 
@@ -10,7 +10,7 @@ void main() {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AppState()),
-        ChangeNotifierProvider(create: (_) => MockDataService()),
+        ChangeNotifierProvider(create: (_) => StreamChatService()),
       ],
       child: const StreamChatApp(),
     ),

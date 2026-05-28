@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../services/mock_data.dart';
+import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 
 class MessageActionSheet extends StatelessWidget {
@@ -19,7 +19,7 @@ class MessageActionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final data = context.read<MockDataService>();
+    final data = context.read<StreamChatService>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMine = message.senderId == data.currentUser.id;
     final bgColor = isDark ? AppColors.darkSurface : Colors.white;
@@ -167,7 +167,7 @@ class MessageActionSheet extends StatelessWidget {
   }
 
   /// Shows a bottom sheet to pick a channel to forward the message to.
-  void _showForwardSheet(BuildContext context, MockDataService data) {
+  void _showForwardSheet(BuildContext context, StreamChatService data) {
     final channels = data.myChannels
         .where((c) => c.id != channelId)
         .toList();
@@ -273,7 +273,7 @@ class MessageActionSheet extends StatelessWidget {
     );
   }
 
-  void _showEditDialog(BuildContext context, MockDataService data) {
+  void _showEditDialog(BuildContext context, StreamChatService data) {
     final ctrl =
         TextEditingController(text: message.editedText ?? message.text);
     showDialog(
@@ -308,7 +308,7 @@ class MessageActionSheet extends StatelessWidget {
     );
   }
 
-  void _showDeleteConfirm(BuildContext context, MockDataService data) {
+  void _showDeleteConfirm(BuildContext context, StreamChatService data) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(

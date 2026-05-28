@@ -83,6 +83,8 @@ class NotificationsScreen extends StatelessWidget {
                     isDark: isDark,
                     onTap: () {
                       data.markNotificationRead(notif.id);
+                      // Also clear the unread badge on the channel tile.
+                      data.markChannelRead(notif.channelId);
                       context.push('/channels/${notif.channelId}/chat');
                     },
                   );
@@ -140,14 +142,16 @@ class _NotifTile extends StatelessWidget {
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: Theme.of(context).scaffoldBackgroundColor,
+                        color: isDark
+                            ? AppColors.darkBackground
+                            : Colors.white,
                         width: 2,
                       ),
                     ),
                     child: const Icon(
                       Icons.alternate_email,
                       color: Colors.white,
-                      size: 11,
+                      size: 10,
                     ),
                   ),
                 ),
@@ -158,90 +162,65 @@ class _NotifTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: RichText(
-                          text: TextSpan(
-                            children: [
-                              TextSpan(
-                                text: sender?.name ?? 'Someone',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: isDark
-                                      ? AppColors.textDark
-                                      : AppColors.textLight,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              TextSpan(
-                                text: ' mentioned you in ',
-                                style: TextStyle(
-                                  color: isDark
-                                      ? AppColors.textDarkSecondary
-                                      : AppColors.textLightSecondary,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              TextSpan(
-                                text: channelName,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.primary,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (isUnread)
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? AppColors.darkCard
-                          : const Color(0xFFF5F6FA),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      notification.text,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                  RichText(
+                    text: TextSpan(
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         color: isDark
-                            ? AppColors.textDarkSecondary
-                            : AppColors.textLightSecondary,
-                        fontStyle: FontStyle.italic,
+                            ? AppColors.textDark
+                            : AppColors.textLight,
                       ),
+                      children: [
+                        TextSpan(
+                          text: sender?.name ?? 'Someone',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700),
+                        ),
+                        const TextSpan(text: ' mentioned you in '),
+                        TextSpan(
+                          text: channelName,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    timeago.format(notification.createdAt, allowFromNow: true),
+                    notification.text,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark
+                          ? AppColors.textDarkSecondary
+                          : AppColors.textLightSecondary,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    timeago.format(notification.createdAt),
                     style: TextStyle(
                       fontSize: 11,
                       color: isDark
-                          ? AppColors.textDarkSecondary.withValues(alpha: 0.7)
-                          : AppColors.textLightSecondary.withValues(alpha: 0.7),
+                          ? AppColors.textDarkSecondary
+                          : AppColors.textLightSecondary,
                     ),
                   ),
                 ],
               ),
             ),
+            if (isUnread)
+              Container(
+                width: 8,
+                height: 8,
+                margin: const EdgeInsets.only(top: 4, left: 8),
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+              ),
           ],
         ),
       ),

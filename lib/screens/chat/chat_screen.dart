@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -31,10 +31,18 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _send() {
+    final data = context.read<MockDataService>();
+    final channel = data.channelById(widget.channelId);
+    if (channel == null) return;
+    // Guard: non-members cannot send
+    if (!channel.memberIds.contains(data.currentUser.id)) {
+      _showNotMemberSnackbar();
+      return;
+    }
     final text = _inputCtrl.text.trim();
     if (text.isEmpty) return;
     _inputCtrl.clear();
-    context.read<MockDataService>().sendMessage(widget.channelId, text);
+    data.sendMessage(widget.channelId, text);
     Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
   }
 
@@ -48,7 +56,24 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  void _showNotMemberSnackbar() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('You are not a member of this group.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _attach() async {
+    final data = context.read<MockDataService>();
+    final channel = data.channelById(widget.channelId);
+    if (channel == null) return;
+    // Guard: non-members cannot send attachments
+    if (!channel.memberIds.contains(data.currentUser.id)) {
+      _showNotMemberSnackbar();
+      return;
+    }
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (_) => SafeArea(
@@ -106,6 +131,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     final me = data.currentUser;
+    final isMember = channel.memberIds.contains(me.id);
     final messages = channel.messages;
 
     String title;
@@ -145,16 +171,16 @@ class _ChatScreenState extends State<ChatScreen> {
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w700)),
                     Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: subtitle == 'Online'
-                              ? AppColors.online
-                              : isDark
-                                  ? AppColors.textDarkSecondary
-                                  : AppColors.textLightSecondary,
-                        ),
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: subtitle == 'Online'
+                            ? AppColors.online
+                            : isDark
+                                ? AppColors.textDarkSecondary
+                                : AppColors.textLightSecondary,
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -171,6 +197,39 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
+          // Non-member banner
+          if (channel.isGroup && !isMember)
+            Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: isDark
+                  ? AppColors.darkCard
+                  : const Color(0xFFFFF3CD),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lock_outline,
+                    size: 16,
+                    color: isDark
+                        ? AppColors.textDarkSecondary
+                        : const Color(0xFF856404),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'You are not a member of this group and cannot send messages.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? AppColors.textDarkSecondary
+                            : const Color(0xFF856404),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           // Message list
           Expanded(
             child: messages.isEmpty
@@ -207,7 +266,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       final isMine = msg.senderId == me.id;
                       final sender = data.userById(msg.senderId);
                       final showAvatar = !isMine &&
-                          (i == 0 || messages[i - 1].senderId != msg.senderId);
+                          (i == 0 ||
+                              messages[i - 1].senderId != msg.senderId);
                       return _MessageBubble(
                         message: msg,
                         isMine: isMine,
@@ -242,21 +302,24 @@ class _ChatScreenState extends State<ChatScreen> {
                 ],
               ),
             ),
-          // Input area
-          _InputArea(
-            controller: _inputCtrl,
-            isDark: isDark,
-            onSend: _send,
-            onAttach: _attach,
-            onChanged: (_) {},
-          ),
+          // Input area — hidden (replaced by lock banner) for non-members in groups
+          if (!channel.isGroup || isMember)
+            _InputArea(
+              controller: _inputCtrl,
+              isDark: isDark,
+              onSend: _send,
+              onAttach: _attach,
+              onChanged: (_) {},
+            )
+          else
+            _LockedInputArea(isDark: isDark),
         ],
       ),
     );
   }
 }
 
-// ─── Message bubble ─────────────────────────────────────────────────────────
+// ─── Message bubble ──────────────────────────────────────────────────────────────
 
 class _MessageBubble extends StatelessWidget {
   final MockMessage message;
@@ -289,7 +352,8 @@ class _MessageBubble extends StatelessWidget {
               isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: isDark
                     ? AppColors.darkCard.withValues(alpha: 0.5)
@@ -346,7 +410,6 @@ class _MessageBubble extends StatelessWidget {
             Padding(
               padding: EdgeInsets.only(
                 left: isMine ? 0 : 52,
-                right: isMine ? 0 : 0,
                 bottom: 2,
               ),
               child: Row(
@@ -357,8 +420,8 @@ class _MessageBubble extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Pinned',
-                    style: TextStyle(
-                        fontSize: 11, color: AppColors.primary),
+                    style:
+                        TextStyle(fontSize: 11, color: AppColors.primary),
                   ),
                 ],
               ),
@@ -415,7 +478,8 @@ class _MessageBubble extends StatelessWidget {
                         if (message.text.isNotEmpty)
                           Text(
                             message.displayText,
-                            style: TextStyle(color: textColor, fontSize: 14.5),
+                            style:
+                                TextStyle(color: textColor, fontSize: 14.5),
                           ),
                         ...message.attachments.map((att) {
                           if (att.type == 'image') {
@@ -539,7 +603,8 @@ class _MessageBubble extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.forum, size: 14, color: AppColors.primary),
+                    const Icon(Icons.forum,
+                        size: 14, color: AppColors.primary),
                     const SizedBox(width: 4),
                     Text(
                       '${message.threadReplies.length} ${message.threadReplies.length == 1 ? 'reply' : 'replies'}',
@@ -558,7 +623,7 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
-// ─── Input area ──────────────────────────────────────────────────────────────
+// ─── Input area ────────────────────────────────────────────────────────────────
 
 class _InputArea extends StatelessWidget {
   final TextEditingController controller;
@@ -632,6 +697,51 @@ class _InputArea extends StatelessWidget {
               ),
               child: const Icon(Icons.send_rounded,
                   color: Colors.white, size: 20),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Locked input area (shown to non-members of a group) ───────────────────────
+
+class _LockedInputArea extends StatelessWidget {
+  final bool isDark;
+
+  const _LockedInputArea({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkAppBar : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB),
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.lock_outline,
+            size: 16,
+            color: isDark
+                ? AppColors.textDarkSecondary
+                : AppColors.textLightSecondary,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'You cannot send messages in this group.',
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark
+                  ? AppColors.textDarkSecondary
+                  : AppColors.textLightSecondary,
             ),
           ),
         ],

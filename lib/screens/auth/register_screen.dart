@@ -16,6 +16,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
+  final _usernameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
@@ -27,7 +28,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
-    _nameCtrl.dispose(); _emailCtrl.dispose(); _passCtrl.dispose(); _confirmCtrl.dispose();
+    _nameCtrl.dispose();
+    _usernameCtrl.dispose();
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    _confirmCtrl.dispose();
     super.dispose();
   }
 
@@ -55,6 +60,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _nameCtrl.text.trim(),
         _emailCtrl.text.trim(),
         _passCtrl.text,
+        _usernameCtrl.text.trim().toLowerCase(),
         avatarPath: _pickedImage?.path,
       );
       if (!mounted) return;
@@ -84,6 +90,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 6),
                 Text('Create your account to get started', style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
                 const SizedBox(height: 32),
+
+                // Avatar picker
                 Center(
                   child: GestureDetector(
                     onTap: _pickProfileImage,
@@ -95,23 +103,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         child: _pickedImage == null ? const Icon(Icons.person, size: 48, color: AppColors.primary) : null,
                       ),
                       Positioned(bottom: 0, right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 14),
-                        ),
-                      ),
+                        child: Container(padding: const EdgeInsets.all(6), decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle), child: const Icon(Icons.camera_alt, color: Colors.white, size: 14))),
                     ]),
                   ),
                 ),
                 Center(child: TextButton(onPressed: _pickProfileImage, child: Text(_pickedImage == null ? 'Add photo (optional)' : 'Change photo'))),
                 const SizedBox(height: 16),
+
+                // Display name
                 TextFormField(
                   controller: _nameCtrl,
                   decoration: const InputDecoration(labelText: 'Display name', prefixIcon: Icon(Icons.badge_outlined)),
                   validator: (v) { if (v == null || v.trim().isEmpty) return 'Enter your name'; if (v.trim().length < 2) return 'Name too short'; return null; },
                 ),
                 const SizedBox(height: 16),
+
+                // Username
+                TextFormField(
+                  controller: _usernameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Username',
+                    prefixIcon: Icon(Icons.alternate_email),
+                    helperText: 'Lowercase letters, numbers, underscores. Min 3 chars.',
+                  ),
+                  autocorrect: false,
+                  textCapitalization: TextCapitalization.none,
+                  onChanged: (v) {
+                    // Sanitise live as the user types
+                    final clean = v.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '');
+                    if (clean != v) {
+                      _usernameCtrl.value = TextEditingValue(
+                        text: clean,
+                        selection: TextSelection.collapsed(offset: clean.length),
+                      );
+                    }
+                  },
+                  validator: (v) {
+                    final err = StreamChatService.validateUsername(v?.trim().toLowerCase() ?? '');
+                    return err;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Email
                 TextFormField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
@@ -119,6 +153,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   validator: (v) { if (v == null || v.isEmpty) return 'Enter your email'; if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) return 'Enter a valid email'; return null; },
                 ),
                 const SizedBox(height: 16),
+
+                // Password
                 TextFormField(
                   controller: _passCtrl,
                   obscureText: _obscure,
@@ -130,17 +166,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   validator: (v) { if (v == null || v.isEmpty) return 'Enter a password'; if (v.length < 6) return 'Min 6 characters'; return null; },
                 ),
                 const SizedBox(height: 16),
+
+                // Confirm password
                 TextFormField(
                   controller: _confirmCtrl,
                   obscureText: _obscure,
                   decoration: const InputDecoration(labelText: 'Confirm password', prefixIcon: Icon(Icons.lock_outline)),
                   validator: (v) { if (v != _passCtrl.text) return 'Passwords do not match'; return null; },
                 ),
+
                 if (_errorMsg != null) ...[
                   const SizedBox(height: 12),
                   Text(_errorMsg!, style: const TextStyle(color: AppColors.error, fontSize: 13)),
                 ],
                 const SizedBox(height: 32),
+
                 ElevatedButton(
                   onPressed: _loading ? null : _register,
                   child: _loading

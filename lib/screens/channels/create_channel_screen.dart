@@ -212,7 +212,7 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                       return ListTile(
                         leading: UserAvatar(name: user.name, avatarUrl: user.avatarUrl, size: 44, showOnline: user.isOnline),
                         title: Text(user.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text(user.email.isNotEmpty ? user.email : user.id, style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary, fontSize: 12)),
+                        subtitle: Text('@${user.username}', style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary, fontSize: 12)),
                         trailing: selected ? const CircleAvatar(radius: 12, backgroundColor: AppColors.primary, child: Icon(Icons.check, color: Colors.white, size: 14)) : null,
                         onTap: () {
                           setState(() {

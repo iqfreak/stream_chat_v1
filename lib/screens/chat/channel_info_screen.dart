@@ -163,7 +163,7 @@ class ChannelInfoScreen extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 subtitle: Text(
-                  user.id == data.currentUser.id ? 'You' : user.email,
+                  user.id == data.currentUser.id ? 'You · @${user.username}' : '@${user.username}',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark
@@ -374,7 +374,7 @@ class ChannelInfoScreen extends StatelessWidget {
                     title: Text(user.name,
                         style: const TextStyle(
                             fontWeight: FontWeight.w600)),
-                    subtitle: Text(user.email,
+                    subtitle: Text('@${user.username}',
                         style: const TextStyle(fontSize: 12)),
                     onTap: () {
                       data.addMemberToChannel(channel.id, user.id);

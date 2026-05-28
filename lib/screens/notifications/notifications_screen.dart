@@ -2,7 +2,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import '../../services/mock_data.dart';
+import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/bottom_nav_scaffold.dart';
 import '../../widgets/user_avatar.dart';
@@ -12,7 +12,7 @@ class NotificationsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final data = context.watch<MockDataService>();
+    final data = context.watch<StreamChatService>();
     final notifications = data.notifications;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final unreadCount = data.unreadNotificationCount;

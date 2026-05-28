@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import '../../services/mock_data.dart';
+import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/user_avatar.dart';
 
@@ -32,7 +32,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
   }
 
   void _sendReply() {
-    final data = context.read<MockDataService>();
+    final data = context.read<StreamChatService>();
     final channel = data.channelById(widget.channelId);
     if (channel == null) return;
     // Guard: non-members cannot reply in threads
@@ -66,7 +66,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final data = context.watch<MockDataService>();
+    final data = context.watch<StreamChatService>();
     final channel = data.channelById(widget.channelId);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 

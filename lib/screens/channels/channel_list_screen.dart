@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import '../../services/mock_data.dart';
+import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/bottom_nav_scaffold.dart';
 import '../../widgets/user_avatar.dart';
@@ -12,7 +12,7 @@ class ChannelListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final data = context.watch<MockDataService>();
+    final data = context.watch<StreamChatService>();
     final channels = data.myChannels;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -147,10 +147,9 @@ class ChannelListScreen extends StatelessWidget {
                     },
                     onDismissed: (_) {
                       if (ch.isGroup) {
-                        // Leave the group; service auto-deletes if last member
-                        context.read<MockDataService>().leaveChannel(ch.id);
+                        context.read<StreamChatService>().leaveChannel(ch.id);
                       } else {
-                        context.read<MockDataService>().deleteChannel(ch.id);
+                        context.read<StreamChatService>().deleteChannel(ch.id);
                       }
                     },
                     child: ListTile(
@@ -230,7 +229,7 @@ class ChannelListScreen extends StatelessWidget {
                       ),
                       onTap: () {
                         context
-                            .read<MockDataService>()
+                            .read<StreamChatService>()
                             .markChannelRead(ch.id);
                         context.push('/channels/${ch.id}/chat');
                       },
@@ -245,7 +244,7 @@ class ChannelListScreen extends StatelessWidget {
 
 class _GroupAvatar extends StatelessWidget {
   final List<String> memberIds;
-  final MockDataService data;
+  final StreamChatService data;
   final String name;
 
   const _GroupAvatar(

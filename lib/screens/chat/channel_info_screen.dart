@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../services/mock_data.dart';
+import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/user_avatar.dart';
 
@@ -12,7 +12,7 @@ class ChannelInfoScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final data = context.watch<MockDataService>();
+    final data = context.watch<StreamChatService>();
     final channel = data.channelById(channelId);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -278,11 +278,11 @@ class ChannelInfoScreen extends StatelessWidget {
                 if (confirmed == true && context.mounted) {
                   if (channel.isGroup) {
                     context
-                        .read<MockDataService>()
+                        .read<StreamChatService>()
                         .leaveChannel(channelId);
                   } else {
                     context
-                        .read<MockDataService>()
+                        .read<StreamChatService>()
                         .deleteChannel(channelId);
                   }
                   context.go('/channels');
@@ -297,7 +297,7 @@ class ChannelInfoScreen extends StatelessWidget {
   }
 
   void _showRenameDialog(
-      BuildContext context, MockDataService data, String currentName) {
+      BuildContext context, StreamChatService data, String currentName) {
     final ctrl = TextEditingController(text: currentName);
     showDialog(
       context: context,
@@ -330,7 +330,7 @@ class ChannelInfoScreen extends StatelessWidget {
   }
 
   void _showAddMemberSheet(
-      BuildContext context, MockDataService data, MockChannel channel) {
+      BuildContext context, StreamChatService data, MockChannel channel) {
     final nonMembers = data.allUsers
         .where((u) => !channel.memberIds.contains(u.id))
         .toList();

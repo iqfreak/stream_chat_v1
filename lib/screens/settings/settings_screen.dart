@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../providers/app_state.dart';
-import '../../services/mock_data.dart';
+import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/bottom_nav_scaffold.dart';
 import '../../widgets/user_avatar.dart';
@@ -25,7 +25,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null && mounted) {
-      context.read<MockDataService>().updateUserAvatar(pickedFile.path);
+      context.read<StreamChatService>().updateUserAvatar(pickedFile.path);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -91,7 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
-    final data = context.watch<MockDataService>();
+    final data = context.watch<StreamChatService>();
     final user = data.currentUser;
     final isDark = appState.isDark;
     final lang = appState.locale;
@@ -334,11 +334,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              context.read<AppState>().signOut();
-              context.read<MockDataService>().logout();
-              context.go('/login');
+              final svc = context.read<StreamChatService>();
+              final appState = context.read<AppState>();
+              await svc.logout();
+              appState.signOut();
+              if (context.mounted) context.go('/login');
             },
             child: Text(_tr('sign_out', lang)),
           ),

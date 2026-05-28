@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import '../../services/mock_data.dart';
+import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/app_state.dart';
 
@@ -23,7 +23,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    final user = context.read<MockDataService>().currentUser;
+    final user = context.read<StreamChatService>().currentUser;
     _nameController = TextEditingController(text: user.name);
     _emailController = TextEditingController(text: user.email);
   }
@@ -66,7 +66,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     final lang = context.watch<AppState>().locale;
     final isArabic = lang == 'ar';
-    final data = context.watch<MockDataService>();
+    final data = context.watch<StreamChatService>();
     final user = data.currentUser;
 
     // Determine which avatar to preview:

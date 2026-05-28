@@ -78,7 +78,15 @@ class ChannelListScreen extends StatelessWidget {
                     );
                   }
 
-                  // Swipe-to-delete
+                  // Swipe action label depends on channel type:
+                  // - DM: delete (removes the channel entirely)
+                  // - Group: leave (removes current user from memberIds;
+                  //   if last member, the channel is also cleaned up)
+                  final swipeLabel =
+                      ch.isGroup ? 'Leave' : 'Delete';
+                  final swipeIcon =
+                      ch.isGroup ? Icons.exit_to_app : Icons.delete_outline;
+
                   return Dismissible(
                     key: ValueKey(ch.id),
                     direction: DismissDirection.endToStart,
@@ -86,16 +94,40 @@ class ChannelListScreen extends StatelessWidget {
                       alignment: Alignment.centerRight,
                       padding: const EdgeInsets.only(right: 20),
                       color: AppColors.error,
-                      child: const Icon(Icons.delete_outline,
-                          color: Colors.white, size: 28),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Icon(swipeIcon, color: Colors.white, size: 24),
+                          const SizedBox(width: 6),
+                          Text(
+                            swipeLabel,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                      ),
                     ),
                     confirmDismiss: (_) async {
+                      final otherName = ch.isGroup
+                          ? ch.name
+                          : (data
+                                  .userById(ch.memberIds.firstWhere(
+                                      (id) => id != data.currentUser.id,
+                                      orElse: () => ch.memberIds.first))
+                                  ?.name ??
+                              ch.name);
                       return await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          title: const Text('Delete chat?'),
+                          title: Text(
+                              ch.isGroup ? 'Leave group?' : 'Delete chat?'),
                           content: Text(
-                            'Are you sure you want to remove "${ch.isGroup ? ch.name : (data.userById(ch.memberIds.firstWhere((id) => id != data.currentUser.id, orElse: () => ch.memberIds.first))?.name ?? ch.name)}"?',
+                            ch.isGroup
+                                ? 'Leave "$otherName"? You will no longer receive messages from this group.'
+                                : 'Delete your chat with "$otherName"? This cannot be undone.',
                           ),
                           actions: [
                             TextButton(
@@ -106,7 +138,7 @@ class ChannelListScreen extends StatelessWidget {
                               style: TextButton.styleFrom(
                                   foregroundColor: AppColors.error),
                               onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('Delete'),
+                              child: Text(ch.isGroup ? 'Leave' : 'Delete'),
                             ),
                           ],
                         ),
@@ -114,7 +146,12 @@ class ChannelListScreen extends StatelessWidget {
                           false;
                     },
                     onDismissed: (_) {
-                      context.read<MockDataService>().deleteChannel(ch.id);
+                      if (ch.isGroup) {
+                        // Leave the group; service auto-deletes if last member
+                        context.read<MockDataService>().leaveChannel(ch.id);
+                      } else {
+                        context.read<MockDataService>().deleteChannel(ch.id);
+                      }
                     },
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(
@@ -192,7 +229,6 @@ class ChannelListScreen extends StatelessWidget {
                         ],
                       ),
                       onTap: () {
-                        // Mark channel as read when opening
                         context
                             .read<MockDataService>()
                             .markChannelRead(ch.id);

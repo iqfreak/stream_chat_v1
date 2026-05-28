@@ -430,16 +430,23 @@ class MockDataService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Removes a channel entirely (used for delete-chat).
+  /// Removes a channel entirely (used for delete-chat on DMs).
   void deleteChannel(String channelId) {
     _channels.removeWhere((c) => c.id == channelId);
     notifyListeners();
   }
 
+  /// Removes the current user from a group channel.
+  /// If the current user was the last member, the channel is also deleted
+  /// so it doesn't linger as an orphan with 0 members.
   void leaveChannel(String channelId) {
     final ch = channelById(channelId);
     if (ch == null) return;
     ch.memberIds.remove(_currentUser.id);
+    // Auto-clean orphan channels (no members left)
+    if (ch.memberIds.isEmpty) {
+      _channels.remove(ch);
+    }
     notifyListeners();
   }
 

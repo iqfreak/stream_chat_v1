@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -32,14 +32,27 @@ class _ThreadScreenState extends State<ThreadScreen> {
   }
 
   void _sendReply() {
+    final data = context.read<MockDataService>();
+    final channel = data.channelById(widget.channelId);
+    if (channel == null) return;
+    // Guard: non-members cannot reply in threads
+    if (!channel.memberIds.contains(data.currentUser.id)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You are not a member of this group.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     final text = _inputCtrl.text.trim();
     if (text.isEmpty) return;
     _inputCtrl.clear();
-    context.read<MockDataService>().sendThreadReply(
-          widget.channelId,
-          widget.messageId,
-          text,
-        );
+    data.sendThreadReply(
+      widget.channelId,
+      widget.messageId,
+      text,
+    );
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollCtrl.hasClients) {
         _scrollCtrl.animateTo(
@@ -74,6 +87,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
 
     final replies = parent.threadReplies;
     final me = data.currentUser;
+    final isMember = channel.memberIds.contains(me.id);
 
     return Scaffold(
       appBar: AppBar(
@@ -82,6 +96,36 @@ class _ThreadScreenState extends State<ThreadScreen> {
       ),
       body: Column(
         children: [
+          // Non-member banner
+          if (channel.isGroup && !isMember)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: isDark ? AppColors.darkCard : const Color(0xFFFFF3CD),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lock_outline,
+                    size: 16,
+                    color: isDark
+                        ? AppColors.textDarkSecondary
+                        : const Color(0xFF856404),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'You are not a member of this group and cannot reply.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? AppColors.textDarkSecondary
+                            : const Color(0xFF856404),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: ListView(
               controller: _scrollCtrl,
@@ -158,20 +202,22 @@ class _ThreadScreenState extends State<ThreadScreen> {
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 6,
-                          children: parent.reactions.map((r) => Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? AppColors.reactionBg
-                                  : Colors.grey.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '${r.emoji} ${r.userIds.length}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          )).toList(),
+                          children: parent.reactions
+                              .map((r) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? AppColors.reactionBg
+                                          : Colors.grey.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      '${r.emoji} ${r.userIds.length}',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ))
+                              .toList(),
                         ),
                       ],
                     ],
@@ -254,8 +300,9 @@ class _ThreadScreenState extends State<ThreadScreen> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
+                                  // FIX: use displayText so edited replies show correctly
                                   Text(
-                                    reply.text,
+                                    reply.displayText,
                                     style: TextStyle(
                                       color: isMine
                                           ? Colors.white
@@ -265,6 +312,19 @@ class _ThreadScreenState extends State<ThreadScreen> {
                                       fontSize: 14,
                                     ),
                                   ),
+                                  if (reply.editedText != null)
+                                    Text(
+                                      '(edited)',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: (isMine
+                                                ? Colors.white
+                                                : isDark
+                                                    ? AppColors.textDark
+                                                    : AppColors.textLight)
+                                            .withValues(alpha: 0.6),
+                                      ),
+                                    ),
                                   const SizedBox(height: 2),
                                   Text(
                                     timeago.format(reply.createdAt,
@@ -292,58 +352,95 @@ class _ThreadScreenState extends State<ThreadScreen> {
               ],
             ),
           ),
-          // Thread input
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkAppBar : Colors.white,
-              border: Border(
-                top: BorderSide(
-                  color: isDark
-                      ? AppColors.darkDivider
-                      : const Color(0xFFE5E7EB),
+          // Input area — locked for non-members in groups
+          if (!channel.isGroup || isMember)
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkAppBar : Colors.white,
+                border: Border(
+                  top: BorderSide(
+                    color: isDark
+                        ? AppColors.darkDivider
+                        : const Color(0xFFE5E7EB),
+                  ),
                 ),
               ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _inputCtrl,
-                    maxLines: 4,
-                    minLines: 1,
-                    decoration: InputDecoration(
-                      hintText: 'Reply in thread...',
-                      filled: true,
-                      fillColor: isDark
-                          ? AppColors.darkCard
-                          : const Color(0xFFF0F2F5),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _inputCtrl,
+                      maxLines: 4,
+                      minLines: 1,
+                      decoration: InputDecoration(
+                        hintText: 'Reply in thread...',
+                        filled: true,
+                        fillColor: isDark
+                            ? AppColors.darkCard
+                            : const Color(0xFFF0F2F5),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _sendReply,
-                  child: Container(
-                    width: 42,
-                    height: 42,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _sendReply,
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.send_rounded,
+                          color: Colors.white, size: 20),
                     ),
-                    child: const Icon(Icons.send_rounded,
-                        color: Colors.white, size: 20),
+                  ),
+                ],
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkAppBar : Colors.white,
+                border: Border(
+                  top: BorderSide(
+                    color: isDark
+                        ? AppColors.darkDivider
+                        : const Color(0xFFE5E7EB),
                   ),
                 ),
-              ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.lock_outline,
+                    size: 16,
+                    color: isDark
+                        ? AppColors.textDarkSecondary
+                        : AppColors.textLightSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'You cannot reply in this thread.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark
+                          ? AppColors.textDarkSecondary
+                          : AppColors.textLightSecondary,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );

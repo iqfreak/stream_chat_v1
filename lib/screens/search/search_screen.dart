@@ -67,6 +67,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             Text('No results for "$_query"', style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
                           ]))
                         : ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
                             itemCount: _results.length,
                             separatorBuilder: (_, __) => Divider(height: 0, indent: 72, color: isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB)),
                             itemBuilder: (context, i) {

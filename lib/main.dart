@@ -5,7 +5,8 @@ import 'services/stream_chat_service.dart';
 import 'theme/app_theme.dart';
 import 'router/app_router.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(
     MultiProvider(
       providers: [

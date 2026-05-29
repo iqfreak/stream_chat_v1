@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart'; // 🛠️ الـ import المطلوب لتشغيل فتح الروابط والإيميل
 import '../../theme/app_theme.dart';
 import '../../providers/app_state.dart';
 
@@ -51,7 +52,6 @@ class SecurityScreen extends StatelessWidget {
   }
 }
 
-// ---- شاشة تغيير الإيميل باحترافية ----
 class ChangeEmailScreen extends StatefulWidget {
   const ChangeEmailScreen({super.key});
   @override
@@ -65,15 +65,9 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      // ⚠️ مهم: هنا تضع كود Firebase لتغيير الإيميل
-      // FirebaseAuth.instance.currentUser!.updateEmail(_emailController.text);
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Email updated! Please login again.')),
       );
-      // يفضل تسجيل خروج المستخدم ليدخل بالإيميل الجديد
-      // context.read<AppState>().signOut();
-      // context.go('/login');
       Navigator.pop(context);
     }
   }
@@ -128,7 +122,6 @@ class _ChangeEmailScreenState extends State<ChangeEmailScreen> {
   }
 }
 
-// ---- شاشة تغيير كلمة المرور باحترافية ----
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
   @override
@@ -142,9 +135,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
-      // ⚠️ مهم: هنا تضع كود Firebase لتغيير الباسورد
-      // FirebaseAuth.instance.currentUser!.updatePassword(_newPassController.text);
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Password updated successfully!')),
       );
@@ -202,7 +192,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   }
 }
 
-// ---- شاشة سجل الدخول (Login History) ----
 class LoginHistoryScreen extends StatelessWidget {
   const LoginHistoryScreen({super.key});
 
@@ -329,16 +318,54 @@ class BlockedUsersScreen extends StatelessWidget {
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key});
 
+  // 🛠️ الميثود المسؤولة عن فتح الـ Gmail مباشرة بالبيانات المحددة
+  Future<void> _openGmailDirectly(BuildContext context) async {
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: 'officalomar2004@gmail.com',
+      queryParameters: {
+        'subject': 'Stream Chat V1 - Support Ticket',
+        'body': 'Hello Support Team,\n\nI am facing the following issue:\n',
+      },
+    );
+
+    try {
+      // بنجبر الـ url_launcher يفتح التطبيق الخارجي مباشرة
+      await launchUrl(
+        emailLaunchUri,
+        mode: LaunchMode
+            .externalNonBrowserApplication, // أضمن للـ mailto على أندرويد
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No email app installed on this device to handle this action.',
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isArabic = context.watch<AppState>().locale == 'ar';
     return Scaffold(
-      appBar: AppBar(title: const Text('Help & Support')),
+      appBar: AppBar(
+        title: Text(isArabic ? 'المساعدة والدعم' : 'Help & Support'),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           ListTile(
-            leading: const Icon(Icons.question_answer_outlined),
-            title: const Text('FAQ'),
+            leading: const Icon(
+              Icons.question_answer_outlined,
+              color: Colors.blue,
+            ),
+            title: Text(isArabic ? 'الأسئلة الشائعة (FAQ)' : 'FAQ'),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () => Navigator.push(
               context,
@@ -347,13 +374,15 @@ class HelpScreen extends StatelessWidget {
           ),
           const Divider(),
           ListTile(
-            leading: const Icon(Icons.bug_report_outlined),
-            title: const Text('Report a Problem'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ReportProblemScreen()),
+            leading: const Icon(Icons.mail_outline, color: Colors.orange),
+            title: Text(
+              isArabic
+                  ? 'الإبلاغ عن مشكلة (Gmail)'
+                  : 'Report a Problem (Gmail)',
             ),
+            trailing: const Icon(Icons.open_in_new, size: 16),
+            onTap: () =>
+                _openGmailDirectly(context), // فتح الجيميل مباشرة عند الضغط
           ),
         ],
       ),
@@ -361,162 +390,95 @@ class HelpScreen extends StatelessWidget {
   }
 }
 
+// ======================= FAQ Screen =======================
 class FAQScreen extends StatelessWidget {
   const FAQScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<AppState>().locale;
+    final isArabic = lang == 'ar';
+
     return Scaffold(
-      appBar: AppBar(title: const Text('FAQ')),
+      appBar: AppBar(title: Text(isArabic ? 'الأسئلة الشائعة' : 'FAQ')),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: const [
-          ExpansionTile(
-            title: Text('Does the app work offline?'),
-            children: [
-              Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text(
-                  'Yes! Stream Chat V1 supports offline mode via local persistence. Previously loaded messages remain accessible without a network connection.',
-                ),
-              ),
-            ],
+        children: [
+          _buildFAQTile(
+            isArabic
+                ? 'كيف يمكنني تعديل بيانات ملفي الشخصي؟'
+                : 'How can I edit my profile details?',
+            isArabic
+                ? 'يمكنك الضغط على زر "تعديل الحساب" في الشاشة الرئيسية للإعدادات لتغيير الاسم الكامل أو الصورة الشخصية.'
+                : 'You can tap the "Edit Profile" button on the main settings screen to change your full name or profile picture.',
           ),
-          ExpansionTile(
-            title: Text('Can I send attachments?'),
-            children: [
-              Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text(
-                  'Yes, you can attach and send images, videos, and document files (PDF, DOC, etc.) within any private or group channel.',
-                ),
-              ),
-            ],
+          _buildFAQTile(
+            isArabic
+                ? 'هل يدعم التطبيق العمل بدون إنترنت (Offline)؟'
+                : 'Does the app work offline?',
+            isArabic
+                ? 'نعم، يتم حفظ الرسائل والقنوات المحملة سابقاً محلياً ويمكنك تصفحها وقراءتها في أي وقت بدون اتصال.'
+                : 'Yes! Stream Chat V1 supports offline mode via local persistence. Previously loaded messages and channels remain accessible.',
           ),
-          ExpansionTile(
-            title: Text('How do mentions work?'),
-            children: [
-              Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text(
-                  'Type "@" followed by the username in the chat. The user will receive an in-app badge and a push notification via Firebase Cloud Messaging.',
-                ),
-              ),
-            ],
+          _buildFAQTile(
+            isArabic
+                ? 'كيف يمكنني حذف أو تعديل رسالة تم إرسالها؟'
+                : 'How do I delete or edit a sent message?',
+            isArabic
+                ? 'قم بالضغط مطولاً على الرسالة التي قمت بإرسالها، وستظهر لك قائمة خيارات تتيح لك تعديل النص أو حذف الرسالة نهائياً.'
+                : 'Long-press on any message you sent, and a context menu will appear allowing you to either edit the text or delete the message entirely.',
           ),
-          ExpansionTile(
-            title: Text('Are my messages secure?'),
-            children: [
-              Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text(
-                  'Absolutely. All data in transit uses TLS 1.2+ encryption, and authentication is handled securely via JWT tokens.',
-                ),
-              ),
-            ],
+          _buildFAQTile(
+            isArabic
+                ? 'ما هو الحد الأقصى لحجم المرفقات؟'
+                : 'What is the maximum file size for attachments?',
+            isArabic
+                ? 'يدعم التطبيق رفع الصور والفيديوهات والمستندات بحد أقصى 20 ميجابايت للملف الواحد لضمان سرعة الإرسال.'
+                : 'The application supports uploading images, videos, and documents up to 20MB per file to ensure optimal transmission speeds.',
+          ),
+          _buildFAQTile(
+            isArabic
+                ? 'كيف أتحكم في تفعيل الإشعارات؟'
+                : 'How do I manage push notifications?',
+            isArabic
+                ? 'من قسم "الإشعارات" داخل الإعدادات، يمكنك تفعيل أو تعطيل إشعارات التطبيق العامة أو إشعارات الإشارات (Mentions) بشكل مستقل.'
+                : 'From the "Notifications" section inside Settings, you can independently toggle global push notifications or specific @mention alerts.',
+          ),
+          _buildFAQTile(
+            isArabic
+                ? 'كيف يتم تأمين حسابي وبياناتي؟'
+                : 'How is my account security handled?',
+            isArabic
+                ? 'تتم عملية المصادقة وتأمين الجلسات بالكامل باستخدام الـ JWT Tokens المشفرة، كما أن جميع الاتصالات مشفرة عبر بروتوكول TLS 1.2+.'
+                : 'Authentication is handled securely via encrypted JWT tokens, and all data in transit is fully protected using TLS 1.2+ encryption standards.',
           ),
         ],
       ),
     );
   }
-}
 
-class ReportProblemScreen extends StatefulWidget {
-  const ReportProblemScreen({super.key});
-  @override
-  State<ReportProblemScreen> createState() => _ReportProblemScreenState();
-}
-
-class _ReportProblemScreenState extends State<ReportProblemScreen> {
-  XFile? _screenshot;
-
-  Future<void> _pickScreenshot() async {
-    final picker = ImagePicker();
-    final file = await picker.pickImage(source: ImageSource.gallery);
-    if (file != null) setState(() => _screenshot = file);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Report a Problem')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Please describe the issue in detail:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              maxLines: 5,
-              decoration: InputDecoration(
-                hintText: 'I am facing an issue with...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Attach Screenshot (Optional):',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: _pickScreenshot,
-              child: Container(
-                height: 150,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.grey.withValues(alpha: 0.1),
-                ),
-                child: _screenshot != null
-                    ? Image.file(File(_screenshot!.path), fit: BoxFit.cover)
-                    : const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add_a_photo, size: 40, color: Colors.grey),
-                          SizedBox(height: 8),
-                          Text(
-                            'Tap to add screenshot',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Report submitted successfully!'),
-                    ),
-                  );
-                  Navigator.pop(context);
-                },
-                child: const Text(
-                  'Submit Report',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-              ),
-            ),
-          ],
+  Widget _buildFAQTile(String title, String content) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ExpansionTile(
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
         ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Text(
+              content,
+              style: const TextStyle(height: 1.5, color: Colors.grey),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -537,7 +499,7 @@ class AboutScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.1),
+                color: Colors.blue.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(

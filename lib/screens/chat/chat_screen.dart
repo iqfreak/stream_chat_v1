@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:file_picker/file_picker.dart'; // 🛠️ تم التحديث واستخدام file_picker
 import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/user_avatar.dart';
@@ -20,11 +20,10 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
-  final _picker = ImagePicker();
+
   @override
   void initState() {
     super.initState();
-    // Mark channel as read when the chat screen is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<StreamChatService>().markChannelRead(widget.channelId);
@@ -43,7 +42,6 @@ class _ChatScreenState extends State<ChatScreen> {
     final data = context.read<StreamChatService>();
     final channel = data.channelById(widget.channelId);
     if (channel == null) return;
-    // Guard: non-members cannot send
     if (!channel.memberIds.contains(data.currentUser.id)) {
       _showNotMemberSnackbar();
       return;
@@ -74,44 +72,59 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  // 🛠️ تم تعديل الميثود بالكامل لدعم جميع أنواع الملفات
   Future<void> _attach() async {
     final data = context.read<StreamChatService>();
     final channel = data.channelById(widget.channelId);
     if (channel == null) return;
-    // Guard: non-members cannot send attachments
     if (!channel.memberIds.contains(data.currentUser.id)) {
       _showNotMemberSnackbar();
       return;
     }
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from Gallery'),
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Take a Photo'),
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (source == null) return;
-    final file = await _picker.pickImage(source: source);
-    if (file == null || !mounted) return;
-    context.read<StreamChatService>().sendMessageWithAttachment(
-      widget.channelId,
-      '',
-      [AppAttachment(type: 'image', name: file.name, url: file.path)],
-    );
-    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.any, // 🛠️ يسمح باختيار أي نوع ملف
+      );
+
+      if (result != null && mounted) {
+        // تجهيز قائمة المرفقات
+        List<AppAttachment> attachments = result.files.map((file) {
+          // تحديد نوع الملف مبدئياً للـ UI
+          String fileType = 'file';
+          final ext = file.extension?.toLowerCase();
+          if (ext == 'jpg' ||
+              ext == 'jpeg' ||
+              ext == 'png' ||
+              ext == 'gif' ||
+              ext == 'webp') {
+            fileType = 'image';
+          } else if (ext == 'mp4' || ext == 'avi' || ext == 'mov') {
+            fileType = 'video';
+          } else if (ext == 'mp3' || ext == 'wav' || ext == 'm4a') {
+            fileType = 'audio';
+          }
+
+          return AppAttachment(
+            type: fileType,
+            name: file.name,
+            url: file.path!,
+          );
+        }).toList();
+
+        // إرسال الرسالة مع المرفقات
+        context.read<StreamChatService>().sendMessageWithAttachment(
+          widget.channelId,
+          '',
+          attachments,
+        );
+
+        Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+      }
+    } catch (e) {
+      debugPrint("Error picking file: $e");
+    }
   }
 
   void _showActionSheet(AppMessage msg) {
@@ -119,10 +132,8 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => MessageActionSheet(
-        message: msg,
-        channelId: widget.channelId,
-      ),
+      builder: (_) =>
+          MessageActionSheet(message: msg, channelId: widget.channelId),
     );
   }
 
@@ -142,7 +153,6 @@ class _ChatScreenState extends State<ChatScreen> {
     final me = data.currentUser;
     final isMember = channel.memberIds.contains(me.id);
 
-    // For DMs, find the other user for the AppBar title & online status
     AppUser? otherUser;
     if (!channel.isGroup) {
       otherUser = channel.memberIds
@@ -172,8 +182,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child:
-                      const Icon(Icons.group, color: Colors.white, size: 18),
+                  child: const Icon(Icons.group, color: Colors.white, size: 18),
                 )
               else
                 UserAvatar(
@@ -205,8 +214,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           color: otherUser.isOnline
                               ? AppColors.online
                               : (isDark
-                                  ? AppColors.textDarkSecondary
-                                  : AppColors.textLightSecondary),
+                                    ? AppColors.textDarkSecondary
+                                    : AppColors.textLightSecondary),
                         ),
                       )
                     else if (channel.isGroup)
@@ -228,19 +237,16 @@ class _ChatScreenState extends State<ChatScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),
-            onPressed: () =>
-                context.push('/channels/${widget.channelId}/info'),
+            onPressed: () => context.push('/channels/${widget.channelId}/info'),
           ),
         ],
       ),
       body: Column(
         children: [
-          // Non-member warning banner
           if (channel.isGroup && !isMember)
             Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               color: isDark ? AppColors.darkCard : const Color(0xFFFFF3CD),
               child: Row(
                 children: [
@@ -266,7 +272,6 @@ class _ChatScreenState extends State<ChatScreen> {
                 ],
               ),
             ),
-          // Message list
           Expanded(
             child: channel.messages.isEmpty
                 ? Center(
@@ -305,16 +310,17 @@ class _ChatScreenState extends State<ChatScreen> {
                 : ListView.builder(
                     controller: _scrollCtrl,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     itemCount: channel.messages.length,
                     itemBuilder: (context, i) {
                       final msg = channel.messages[i];
                       final isMine = msg.senderId == me.id;
                       final sender = data.userById(msg.senderId);
 
-                      // Show sender avatar + name for the first message or
-                      // after a different sender
-                      final showHeader = i == 0 ||
+                      final showHeader =
+                          i == 0 ||
                           channel.messages[i - 1].senderId != msg.senderId;
 
                       return _MessageBubble(
@@ -332,7 +338,6 @@ class _ChatScreenState extends State<ChatScreen> {
                     },
                   ),
           ),
-          // Input area
           _buildInputArea(context, isDark, isMember, channel.isGroup),
         ],
       ),
@@ -340,8 +345,11 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildInputArea(
-      BuildContext context, bool isDark, bool isMember, bool isGroup) {
-    // Non-members of groups see a locked bar
+    BuildContext context,
+    bool isDark,
+    bool isMember,
+    bool isGroup,
+  ) {
     if (isGroup && !isMember) {
       return Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -349,8 +357,7 @@ class _ChatScreenState extends State<ChatScreen> {
           color: isDark ? AppColors.darkAppBar : Colors.white,
           border: Border(
             top: BorderSide(
-              color:
-                  isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB),
+              color: isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB),
             ),
           ),
         ),
@@ -385,8 +392,7 @@ class _ChatScreenState extends State<ChatScreen> {
         color: isDark ? AppColors.darkAppBar : Colors.white,
         border: Border(
           top: BorderSide(
-            color:
-                isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB),
+            color: isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB),
           ),
         ),
       ),
@@ -413,14 +419,17 @@ class _ChatScreenState extends State<ChatScreen> {
                 decoration: InputDecoration(
                   hintText: 'Message...',
                   filled: true,
-                  fillColor:
-                      isDark ? AppColors.darkCard : const Color(0xFFF0F2F5),
+                  fillColor: isDark
+                      ? AppColors.darkCard
+                      : const Color(0xFFF0F2F5),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                 ),
                 onSubmitted: (_) => _send(),
               ),
@@ -435,8 +444,11 @@ class _ChatScreenState extends State<ChatScreen> {
                   color: AppColors.primary,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.send_rounded,
-                    color: Colors.white, size: 20),
+                child: const Icon(
+                  Icons.send_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ],
@@ -474,20 +486,18 @@ class _MessageBubble extends StatelessWidget {
     final bubbleColor = isMine
         ? AppColors.sentBubble
         : (isDark
-            ? AppColors.receivedBubbleDark
-            : AppColors.receivedBubbleLight);
+              ? AppColors.receivedBubbleDark
+              : AppColors.receivedBubbleLight);
     final textColor = isMine
         ? Colors.white
         : (isDark ? AppColors.textDark : AppColors.textLight);
 
     return Padding(
-      padding: EdgeInsets.only(
-        top: showHeader ? 12 : 2,
-        bottom: 2,
-      ),
+      padding: EdgeInsets.only(top: showHeader ? 12 : 2, bottom: 2),
       child: Row(
-        mainAxisAlignment:
-            isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isMine
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMine) ...[
@@ -509,20 +519,22 @@ class _MessageBubble extends StatelessWidget {
                   maxWidth: MediaQuery.of(context).size.width * 0.72,
                 ),
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 8),
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: message.isDeleted
-                      ? (isDark
-                          ? AppColors.darkCard
-                          : const Color(0xFFF5F6FA))
+                      ? (isDark ? AppColors.darkCard : const Color(0xFFF5F6FA))
                       : bubbleColor,
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(18),
                     topRight: const Radius.circular(18),
-                    bottomLeft:
-                        Radius.circular(isMine ? 18 : (showHeader ? 4 : 18)),
-                    bottomRight:
-                        Radius.circular(isMine ? (showHeader ? 4 : 18) : 18),
+                    bottomLeft: Radius.circular(
+                      isMine ? 18 : (showHeader ? 4 : 18),
+                    ),
+                    bottomRight: Radius.circular(
+                      isMine ? (showHeader ? 4 : 18) : 18,
+                    ),
                   ),
                 ),
                 child: Column(
@@ -552,11 +564,14 @@ class _MessageBubble extends StatelessWidget {
                         ),
                       )
                     else ...[
-                      // Attachments
-                      ...message.attachments.map((a) => _ImageAttachment(
-                            attachment: a,
-                            isDark: isDark,
-                          )),
+                      // 🛠️ التعديل هنا: استخدام Widget يفرق بين الصور والملفات
+                      ...message.attachments.map(
+                        (a) => _FileAttachmentWidget(
+                          attachment: a,
+                          isDark: isDark,
+                          textColor: textColor,
+                        ),
+                      ),
                       if (message.displayText.isNotEmpty)
                         Text(
                           message.displayText,
@@ -567,7 +582,6 @@ class _MessageBubble extends StatelessWidget {
                           ),
                         ),
                     ],
-                    // Reactions
                     if (message.reactions.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
@@ -576,7 +590,6 @@ class _MessageBubble extends StatelessWidget {
                           channelId: channelId,
                         ),
                       ),
-                    // Thread replies
                     if (message.threadReplies.isNotEmpty)
                       GestureDetector(
                         onTap: onThreadTap,
@@ -585,11 +598,13 @@ class _MessageBubble extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.forum,
-                                  size: 14,
-                                  color: isMine
-                                      ? Colors.white70
-                                      : AppColors.primary),
+                              Icon(
+                                Icons.forum,
+                                size: 14,
+                                color: isMine
+                                    ? Colors.white70
+                                    : AppColors.primary,
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 '${message.threadReplies.length} ${message.threadReplies.length == 1 ? 'reply' : 'replies'}',
@@ -605,7 +620,6 @@ class _MessageBubble extends StatelessWidget {
                           ),
                         ),
                       ),
-                    // Timestamp + edited + pinned
                     const SizedBox(height: 4),
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -613,11 +627,13 @@ class _MessageBubble extends StatelessWidget {
                         if (message.isPinned)
                           Padding(
                             padding: const EdgeInsets.only(right: 4),
-                            child: Icon(Icons.push_pin,
-                                size: 10,
-                                color: isMine
-                                    ? Colors.white70
-                                    : AppColors.primary),
+                            child: Icon(
+                              Icons.push_pin,
+                              size: 10,
+                              color: isMine
+                                  ? Colors.white70
+                                  : AppColors.primary,
+                            ),
                           ),
                         if (message.editedText != null)
                           Padding(
@@ -630,29 +646,26 @@ class _MessageBubble extends StatelessWidget {
                                 color: isMine
                                     ? Colors.white70
                                     : (isDark
-                                        ? AppColors.textDarkSecondary
-                                        : AppColors.textLightSecondary),
+                                          ? AppColors.textDarkSecondary
+                                          : AppColors.textLightSecondary),
                               ),
                             ),
                           ),
                         Text(
-                          timeago.format(message.createdAt,
-                              allowFromNow: true),
+                          timeago.format(message.createdAt, allowFromNow: true),
                           style: TextStyle(
                             fontSize: 10,
                             color: isMine
                                 ? Colors.white70
                                 : (isDark
-                                    ? AppColors.textDarkSecondary
-                                    : AppColors.textLightSecondary),
+                                      ? AppColors.textDarkSecondary
+                                      : AppColors.textLightSecondary),
                           ),
                         ),
                         if (isMine) ...[
                           const SizedBox(width: 4),
                           Icon(
-                            message.isRead
-                                ? Icons.done_all
-                                : Icons.check,
+                            message.isRead ? Icons.done_all : Icons.check,
                             size: 12,
                             color: message.isRead
                                 ? Colors.lightBlueAccent
@@ -672,6 +685,62 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
+// ─── File Attachment Widget ──────────────────────────────────────────────────
+// 🛠️ كلاس جديد لعرض الصور كصور، والملفات الأخرى كأيقونات قابلة للتحميل/الفتح
+class _FileAttachmentWidget extends StatelessWidget {
+  final AppAttachment attachment;
+  final bool isDark;
+  final Color textColor;
+
+  const _FileAttachmentWidget({
+    required this.attachment,
+    required this.isDark,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (attachment.type == 'image') {
+      return _ImageAttachment(attachment: attachment, isDark: isDark);
+    }
+
+    // إذا كان الملف ليس صورة (PDF، ZIP، Audio، إلخ)
+    IconData fileIcon = Icons.insert_drive_file;
+    if (attachment.type == 'video') fileIcon = Icons.video_file;
+    if (attachment.type == 'audio') fileIcon = Icons.audio_file;
+    if (attachment.name.toLowerCase().endsWith('.pdf'))
+      fileIcon = Icons.picture_as_pdf;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(fileIcon, color: textColor, size: 28),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              attachment.name,
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.underline,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Image Attachment ────────────────────────────────────────────────────────
 
 class _ImageAttachment extends StatelessWidget {
@@ -681,8 +750,8 @@ class _ImageAttachment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLocal = attachment.url.startsWith('/') ||
-        attachment.url.startsWith('file://');
+    final isLocal =
+        attachment.url.startsWith('/') || attachment.url.startsWith('file://');
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: ClipRRect(
@@ -723,7 +792,9 @@ class _BrokenImage extends StatelessWidget {
       child: Icon(
         Icons.broken_image_outlined,
         size: 48,
-        color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary,
+        color: isDark
+            ? AppColors.textDarkSecondary
+            : AppColors.textLightSecondary,
       ),
     );
   }
@@ -750,18 +821,16 @@ class _ReactionsRow extends StatelessWidget {
         return GestureDetector(
           onTap: () => data.toggleReaction(channelId, message.id, r.emoji),
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: mine
-                  ? AppColors.primary.withValues(alpha: 0.2)
+                  ? AppColors.primary.withOpacity(0.2)
                   : (isDark
-                      ? AppColors.reactionBg
-                      : Colors.grey.withValues(alpha: 0.15)),
+                        ? AppColors.reactionBg
+                        : Colors.grey.withOpacity(0.15)),
               borderRadius: BorderRadius.circular(12),
               border: mine
-                  ? Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.5))
+                  ? Border.all(color: AppColors.primary.withOpacity(0.5))
                   : null,
             ),
             child: Text(

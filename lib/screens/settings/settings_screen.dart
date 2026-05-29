@@ -96,6 +96,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
+
+    // 🛠️ حل مشكلة الخلفية الحمراء عند الـ Sign Out حماية الـ Rebuild
+    if (!appState.isAuthenticated) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     final data = context.watch<StreamChatService>();
     final user = data.currentUser;
     final isDark = appState.isDark;
@@ -161,7 +167,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 4),
-                // عرض الـ Username بدل الإيميل
                 Text(
                   '@${user.id}',
                   style: TextStyle(
@@ -171,7 +176,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     letterSpacing: 1.1,
                   ),
                 ),
-                const SizedBox(height: 16),
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.edit, size: 16),

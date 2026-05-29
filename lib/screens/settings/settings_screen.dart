@@ -35,9 +35,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context.read<StreamChatService>().updateUserAvatar(pickedFile.path);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            _tr('image_updated', context.read<AppState>().locale),
-          ),
+          content: Text(_tr('image_updated', context.read<AppState>().locale)),
         ),
       );
     }
@@ -109,177 +107,177 @@ class _SettingsScreenState extends State<SettingsScreen> {
       selectedIndex: 3,
       appBar: AppBar(title: Text(_tr('settings_title', lang))),
       body: ListView(
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).padding.bottom + 16),
-          children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                color: isDark ? AppColors.darkCard : const Color(0xFFF5F6FA),
-                child: Column(
-                  children: [
-                    GestureDetector(
-                      onTap: _pickImage,
-                      child: Stack(
-                        children: [
-                          isLocalAvatar
-                              ? CircleAvatar(
-                                  radius: 44,
-                                  backgroundImage:
-                                      FileImage(File(user.avatarUrl)),
-                                )
-                              : UserAvatar(
-                                  name: user.name,
-                                  avatarUrl: user.avatarUrl,
-                                  size: 88,
-                                  showOnline: true,
-                                ),
-                          Positioned(
-                            bottom: 0,
-                            right: lang == 'ar' ? null : 0,
-                            left: lang == 'ar' ? 0 : null,
-                            child: Container(
-                              padding: const EdgeInsets.all(7),
-                              decoration: const BoxDecoration(
-                                color: AppColors.primary,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.camera_alt,
-                                color: Colors.white,
-                                size: 14,
-                              ),
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).padding.bottom + 16,
+        ),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            color: isDark ? AppColors.darkCard : const Color(0xFFF5F6FA),
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Stack(
+                    children: [
+                      isLocalAvatar
+                          ? CircleAvatar(
+                              radius: 44,
+                              backgroundImage: FileImage(File(user.avatarUrl)),
+                            )
+                          : UserAvatar(
+                              name: user.name,
+                              avatarUrl: user.avatarUrl,
+                              size: 88,
+                              showOnline: true,
                             ),
+                      Positioned(
+                        bottom: 0,
+                        right: lang == 'ar' ? null : 0,
+                        left: lang == 'ar' ? 0 : null,
+                        child: Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      user.name,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      user.email,
-                      style: TextStyle(
-                        color: isDark
-                            ? AppColors.textDarkSecondary
-                            : AppColors.textLightSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.edit, size: 16),
-                      label: Text(_tr('edit_profile', lang)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: const BorderSide(color: AppColors.primary),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 14,
+                          ),
                         ),
                       ),
-                      onPressed: () {
-                        context.push('/edit-profile');
-                      },
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  user.name,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 4),
+                // عرض الـ Username بدل الإيميل
+                Text(
+                  '@${user.id}',
+                  style: TextStyle(
+                    color: isDark
+                        ? AppColors.textDarkSecondary
+                        : AppColors.textLightSecondary,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.edit, size: 16),
+                  label: Text(_tr('edit_profile', lang)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  ],
+                  ),
+                  onPressed: () {
+                    context.push('/edit-profile');
+                  },
                 ),
-              ),
+              ],
+            ),
+          ),
 
-              const SizedBox(height: 8),
+          const SizedBox(height: 8),
 
-              _SectionHeader(label: _tr('appearance', lang)),
-              _SettingsTile(
-                icon: Icons.dark_mode_outlined,
-                iconColor: const Color(0xFF7B61FF),
-                label: _tr('dark_mode', lang),
-                subtitle:
-                    isDark ? _tr('enabled', lang) : _tr('disabled', lang),
-                trailing: Switch(
-                  value: isDark,
-                  onChanged: (_) => appState.toggleTheme(),
-                  activeThumbColor: AppColors.primary,
-                ),
-              ),
-              _SettingsTile(
-                icon: Icons.language,
-                iconColor: const Color(0xFF00C3FF),
-                label: _tr('language', lang),
-                subtitle: lang == 'ar' ? 'العربية' : 'English',
-                onTap: () => _showLanguagePicker(context, appState),
-              ),
+          _SectionHeader(label: _tr('appearance', lang)),
+          _SettingsTile(
+            icon: Icons.dark_mode_outlined,
+            iconColor: const Color(0xFF7B61FF),
+            label: _tr('dark_mode', lang),
+            subtitle: isDark ? _tr('enabled', lang) : _tr('disabled', lang),
+            trailing: Switch(
+              value: isDark,
+              onChanged: (_) => appState.toggleTheme(),
+              activeThumbColor: AppColors.primary,
+            ),
+          ),
+          _SettingsTile(
+            icon: Icons.language,
+            iconColor: const Color(0xFF00C3FF),
+            label: _tr('language', lang),
+            subtitle: lang == 'ar' ? 'العربية' : 'English',
+            onTap: () => _showLanguagePicker(context, appState),
+          ),
 
-              const SizedBox(height: 8),
+          const SizedBox(height: 8),
 
-              _SectionHeader(label: _tr('notifications', lang)),
-              _SettingsTile(
-                icon: Icons.notifications_outlined,
-                iconColor: const Color(0xFFFF9500),
-                label: _tr('push_notif', lang),
-                subtitle: _tr('all_msgs', lang),
-                trailing: Switch(
-                  value: _pushNotificationsEnabled,
-                  onChanged: (v) =>
-                      setState(() => _pushNotificationsEnabled = v),
-                  activeThumbColor: AppColors.primary,
-                ),
-              ),
-              _SettingsTile(
-                icon: Icons.alternate_email,
-                iconColor: AppColors.primary,
-                label: _tr('mentions', lang),
-                subtitle: _tr('notify_mentions', lang),
-                trailing: Switch(
-                  value: _mentionsEnabled,
-                  onChanged: (v) => setState(() => _mentionsEnabled = v),
-                  activeThumbColor: AppColors.primary,
-                ),
-              ),
+          _SectionHeader(label: _tr('notifications', lang)),
+          _SettingsTile(
+            icon: Icons.notifications_outlined,
+            iconColor: const Color(0xFFFF9500),
+            label: _tr('push_notif', lang),
+            subtitle: _tr('all_msgs', lang),
+            trailing: Switch(
+              value: _pushNotificationsEnabled,
+              onChanged: (v) => setState(() => _pushNotificationsEnabled = v),
+              activeThumbColor: AppColors.primary,
+            ),
+          ),
+          _SettingsTile(
+            icon: Icons.alternate_email,
+            iconColor: AppColors.primary,
+            label: _tr('mentions', lang),
+            subtitle: _tr('notify_mentions', lang),
+            trailing: Switch(
+              value: _mentionsEnabled,
+              onChanged: (v) => setState(() => _mentionsEnabled = v),
+              activeThumbColor: AppColors.primary,
+            ),
+          ),
 
-              const SizedBox(height: 8),
+          const SizedBox(height: 8),
 
-              _SectionHeader(label: _tr('account', lang)),
-              _SettingsTile(
-                icon: Icons.security,
-                iconColor: const Color(0xFF34C759),
-                label: _tr('security', lang),
-                subtitle: _tr('security_sub', lang),
-                onTap: () => context.push('/security'),
-              ),
-              _SettingsTile(
-                icon: Icons.privacy_tip_outlined,
-                iconColor: const Color(0xFF72767E),
-                label: _tr('privacy', lang),
-                subtitle: _tr('privacy_sub', lang),
-                onTap: () => context.push('/privacy'),
-              ),
-              _SettingsTile(
-                icon: Icons.help_outline,
-                iconColor: const Color(0xFF00C3FF),
-                label: _tr('help', lang),
-                onTap: () => context.push('/help'),
-              ),
-              _SettingsTile(
-                icon: Icons.info_outline,
-                iconColor: const Color(0xFF72767E),
-                label: _tr('about', lang),
-                subtitle: 'Version 1.0.0',
-                onTap: () => context.push('/about'),
-              ),
-              _SettingsTile(
-                icon: Icons.logout,
-                iconColor: AppColors.error,
-                label: _tr('sign_out', lang),
-                onTap: () => _confirmSignOut(context, lang),
-              ),
-              const SizedBox(height: 16),
-          ],
-        ),
+          _SectionHeader(label: _tr('account', lang)),
+          _SettingsTile(
+            icon: Icons.security,
+            iconColor: const Color(0xFF34C759),
+            label: _tr('security', lang),
+            subtitle: _tr('security_sub', lang),
+            onTap: () => context.push('/security'),
+          ),
+          _SettingsTile(
+            icon: Icons.privacy_tip_outlined,
+            iconColor: const Color(0xFF72767E),
+            label: _tr('privacy', lang),
+            subtitle: _tr('privacy_sub', lang),
+            onTap: () => context.push('/privacy'),
+          ),
+          _SettingsTile(
+            icon: Icons.help_outline,
+            iconColor: const Color(0xFF00C3FF),
+            label: _tr('help', lang),
+            onTap: () => context.push('/help'),
+          ),
+          _SettingsTile(
+            icon: Icons.info_outline,
+            iconColor: const Color(0xFF72767E),
+            label: _tr('about', lang),
+            subtitle: 'Version 1.0.0',
+            onTap: () => context.push('/about'),
+          ),
+          _SettingsTile(
+            icon: Icons.logout,
+            iconColor: AppColors.error,
+            label: _tr('sign_out', lang),
+            onTap: () => _confirmSignOut(context, lang),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
     );
   }
 
@@ -399,10 +397,9 @@ class _SettingsTile extends StatelessWidget {
       subtitle: subtitle != null
           ? Text(subtitle!, style: const TextStyle(fontSize: 12))
           : null,
-      trailing: trailing ??
-          (onTap != null
-              ? const Icon(Icons.chevron_right, size: 20)
-              : null),
+      trailing:
+          trailing ??
+          (onTap != null ? const Icon(Icons.chevron_right, size: 20) : null),
       onTap: onTap,
     );
   }

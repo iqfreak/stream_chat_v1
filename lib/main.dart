@@ -4,6 +4,10 @@ import 'providers/app_state.dart';
 import 'services/stream_chat_service.dart';
 import 'theme/app_theme.dart';
 import 'router/app_router.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:stream_chat_flutter/stream_chat_flutter.dart';
+// 👇 السطر ده هو اللي كان ناقص عشان الكلاس يتقري
+import 'package:stream_chat_localizations/stream_chat_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +42,18 @@ class _StreamChatAppState extends State<StreamChatApp> {
       darkTheme: AppTheme.dark,
       themeMode: appState.themeMode,
       routerConfig: _router,
+
+      // ===== الأكواد المسؤولة عن تعميم اللغة =====
+      locale: Locale(appState.locale),
+      supportedLocales: const [Locale('en'), Locale('ar')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalStreamChatLocalizations
+            .delegate, // دلوقتي الكلاس ده هيتقري بدون أي خطأ
+      ],
+      // ===========================================
     );
   }
 }

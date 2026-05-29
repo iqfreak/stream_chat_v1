@@ -29,7 +29,7 @@ class StreamChatService extends ChangeNotifier {
   StreamSubscription<Event>? _eventSub;
 
   StreamChatService()
-      : _client = StreamChatClient(kStreamApiKey, logLevel: Level.SEVERE);
+    : _client = StreamChatClient(kStreamApiKey, logLevel: Level.SEVERE);
 
   StreamChatClient get client => _client;
   bool get isConnected => _client.state.currentUser != null;
@@ -39,9 +39,8 @@ class StreamChatService extends ChangeNotifier {
   List<AppChannel> get myChannels => List.unmodifiable(_channels);
   List<AppChannel> get channels => List.unmodifiable(_channels);
   List<AppUser> get allUsers => _cachedUsers.values.toList();
-  List<AppUser> get otherUsers => _cachedUsers.values
-      .where((u) => u.id != _currentUser?.id)
-      .toList();
+  List<AppUser> get otherUsers =>
+      _cachedUsers.values.where((u) => u.id != _currentUser?.id).toList();
 
   List<AppNotification> get notifications =>
       List.unmodifiable(_notifications.reversed.toList());
@@ -64,7 +63,8 @@ class StreamChatService extends ChangeNotifier {
       sha256.convert(utf8.encode(password)).toString();
 
   static String _generateToken(String userId) {
-    final iat = DateTime.now().subtract(const Duration(seconds: 5));
+    // طرحنا 5 دقائق بدل 5 ثواني عشان نحل مشكلة اختلاف التوقيت مع السيرفر
+    final iat = DateTime.now().subtract(const Duration(minutes: 5));
     final jwt = JWT({
       'user_id': userId,
       'iat': iat.millisecondsSinceEpoch ~/ 1000,
@@ -217,12 +217,14 @@ class StreamChatService extends ChangeNotifier {
     _channels.clear();
     _streamChannels.clear();
 
-    final channelList = await _client.queryChannels(
-      filter: Filter.in_('members', [_currentUser!.id]),
-      channelStateSort: [SortOption.desc('last_message_at')],
-      messageLimit: 30,
-      memberLimit: 100,
-    ).first;
+    final channelList = await _client
+        .queryChannels(
+          filter: Filter.in_('members', [_currentUser!.id]),
+          channelStateSort: [SortOption.desc('last_message_at')],
+          messageLimit: 30,
+          memberLimit: 100,
+        )
+        .first;
 
     for (final ch in channelList) {
       await ch.watch();
@@ -345,15 +347,17 @@ class StreamChatService extends ChangeNotifier {
     final notifId = 'notif_${msg.id}';
     if (_notifications.any((n) => n.id == notifId)) return;
 
-    _notifications.add(AppNotification(
-      id: notifId,
-      fromUserId: msg.user?.id ?? '',
-      channelId: channelId,
-      messageId: msg.id,
-      text: msg.text ?? '',
-      createdAt: msg.createdAt,
-      isRead: false,
-    ));
+    _notifications.add(
+      AppNotification(
+        id: notifId,
+        fromUserId: msg.user?.id ?? '',
+        channelId: channelId,
+        messageId: msg.id,
+        text: msg.text ?? '',
+        createdAt: msg.createdAt,
+        isRead: false,
+      ),
+    );
   }
 
   void _sortChannels() {
@@ -376,20 +380,14 @@ class StreamChatService extends ChangeNotifier {
     if (!isGroup) {
       ch = _client.channel(
         'messaging',
-        extraData: {
-          'is_group': false,
-          'members': memberIds,
-        },
+        extraData: {'is_group': false, 'members': memberIds},
       );
     } else {
       final id = 'grp_${const Uuid().v4().replaceAll('-', '')}';
       ch = _client.channel(
         'messaging',
         id: id,
-        extraData: {
-          'name': name,
-          'is_group': true,
-        },
+        extraData: {'name': name, 'is_group': true},
       );
     }
 
@@ -494,7 +492,10 @@ class StreamChatService extends ChangeNotifier {
   }
 
   Future<void> sendThreadReply(
-      String channelId, String parentId, String text) async {
+    String channelId,
+    String parentId,
+    String text,
+  ) async {
     final ch = _streamChannels[channelId];
     if (ch == null) return;
     await ch.sendMessage(
@@ -503,7 +504,9 @@ class StreamChatService extends ChangeNotifier {
   }
 
   Future<List<AppMessage>> getThreadReplies(
-      String channelId, String parentId) async {
+    String channelId,
+    String parentId,
+  ) async {
     final ch = _streamChannels[channelId];
     if (ch == null) return [];
     final response = await ch.getReplies(parentId);
@@ -511,14 +514,19 @@ class StreamChatService extends ChangeNotifier {
   }
 
   Future<void> toggleReaction(
-      String channelId, String messageId, String emoji) async {
+    String channelId,
+    String messageId,
+    String emoji,
+  ) async {
     final ch = _streamChannels[channelId];
     if (ch == null) return;
 
     final mock = channelById(channelId);
     final msg = mock?.messages.where((m) => m.id == messageId).firstOrNull;
-    final alreadyReacted = msg?.reactions.any((r) =>
-            r.emoji == emoji && r.userIds.contains(_currentUser?.id)) ??
+    final alreadyReacted =
+        msg?.reactions.any(
+          (r) => r.emoji == emoji && r.userIds.contains(_currentUser?.id),
+        ) ??
         false;
 
     if (alreadyReacted) {
@@ -548,7 +556,10 @@ class StreamChatService extends ChangeNotifier {
   }
 
   Future<void> editMessage(
-      String channelId, String messageId, String newText) async {
+    String channelId,
+    String messageId,
+    String newText,
+  ) async {
     await _client.updateMessage(Message(id: messageId, text: newText));
   }
 
@@ -613,7 +624,8 @@ class StreamChatService extends ChangeNotifier {
   }
 
   Future<List<({AppMessage message, AppChannel channel})>> searchMessages(
-      String query) async {
+    String query,
+  ) async {
     if (query.trim().isEmpty) return [];
     try {
       final response = await _client.search(
@@ -643,12 +655,16 @@ class StreamChatService extends ChangeNotifier {
     if (_currentUser == null) return;
     final userId = _currentUser!.id;
 
-    await _client.updateUser(User(
-      id: userId,
-      name: newName,
-      image: _currentUser!.avatarUrl.isNotEmpty ? _currentUser!.avatarUrl : null,
-      extraData: const {},
-    ));
+    await _client.updateUser(
+      User(
+        id: userId,
+        name: newName,
+        image: _currentUser!.avatarUrl.isNotEmpty
+            ? _currentUser!.avatarUrl
+            : null,
+        extraData: const {},
+      ),
+    );
 
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('sc_users') ?? '[]';
@@ -676,12 +692,14 @@ class StreamChatService extends ChangeNotifier {
     if (_currentUser == null) return;
     final userId = _currentUser!.id;
 
-    await _client.updateUser(User(
-      id: userId,
-      name: _currentUser!.name,
-      image: avatarUrl.isNotEmpty ? avatarUrl : null,
-      extraData: const {},
-    ));
+    await _client.updateUser(
+      User(
+        id: userId,
+        name: _currentUser!.name,
+        image: avatarUrl.isNotEmpty ? avatarUrl : null,
+        extraData: const {},
+      ),
+    );
 
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('sc_users') ?? '[]';
@@ -715,12 +733,12 @@ class StreamChatService extends ChangeNotifier {
   }
 
   AppUser _toAppUser(User u) => AppUser(
-        id: u.id,
-        name: u.name,
-        email: (u.extraData['email'] as String?) ?? '',
-        avatarUrl: u.image ?? '',
-        isOnline: u.online,
-      );
+    id: u.id,
+    name: u.name,
+    email: (u.extraData['email'] as String?) ?? '',
+    avatarUrl: u.image ?? '',
+    isOnline: u.online,
+  );
 
   AppChannel _toAppChannel(Channel ch) {
     final state = ch.state;
@@ -732,9 +750,12 @@ class StreamChatService extends ChangeNotifier {
 
     String name;
     if (!isGroup && _currentUser != null) {
-      final otherId =
-          memberIds.firstWhere((id) => id != _currentUser!.id, orElse: () => '');
-      name = _cachedUsers[otherId]?.name ??
+      final otherId = memberIds.firstWhere(
+        (id) => id != _currentUser!.id,
+        orElse: () => '',
+      );
+      name =
+          _cachedUsers[otherId]?.name ??
           (ch.extraData['name'] as String?) ??
           ch.name ??
           'DM';

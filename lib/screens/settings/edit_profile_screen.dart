@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../services/stream_chat_service.dart';
-import '../../theme/app_theme.dart';
 import '../../providers/app_state.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -15,23 +14,21 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _nameController;
-  late TextEditingController _emailController;
   final _picker = ImagePicker();
-  // Tracks a newly picked local image path (before saving)
   String? _pendingAvatarPath;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     final user = context.read<StreamChatService>().currentUser;
     _nameController = TextEditingController(text: user.name);
-    _emailController = TextEditingController(text: user.email);
+    // تمت إزالة _usernameController لأنه لا يتغير
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _emailController.dispose();
     super.dispose();
   }
 
@@ -58,24 +55,46 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
     if (source == null) return;
     final file = await _picker.pickImage(source: source, imageQuality: 80);
-    if (file == null || !mounted) return;
-    setState(() => _pendingAvatarPath = file.path);
+    if (file != null && mounted) setState(() => _pendingAvatarPath = file.path);
+  }
+
+  Future<void> _saveProfile() async {
+    setState(() {
+      _isLoading = true;
+    });
+    final data = context.read<StreamChatService>();
+    final isArabic = context.read<AppState>().locale == 'ar';
+
+    // التحديث للاسم والصورة فقط
+    data.updateUserInfo(_nameController.text, data.currentUser.email);
+    if (_pendingAvatarPath != null) data.updateUserAvatar(_pendingAvatarPath!);
+
+    setState(() => _isLoading = false);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isArabic
+                ? 'تم حفظ التعديلات بنجاح!'
+                : 'Profile Updated Successfully!',
+          ),
+        ),
+      );
+      Navigator.pop(context); // الرجوع بعد الحفظ
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<AppState>().locale;
     final isArabic = lang == 'ar';
-    final data = context.watch<StreamChatService>();
-    final user = data.currentUser;
-
-    // Determine which avatar to preview:
-    // 1. Newly picked (pending) local path
-    // 2. Existing local path already stored
-    // 3. Network URL or empty → fall back to initials avatar
-    final previewPath = _pendingAvatarPath ??
+    final user = context.watch<StreamChatService>().currentUser;
+    final previewPath =
+        _pendingAvatarPath ??
         (user.avatarUrl.startsWith('/') ? user.avatarUrl : null);
-    final networkUrl = (previewPath == null && user.avatarUrl.isNotEmpty &&
+    final networkUrl =
+        (previewPath == null &&
+            user.avatarUrl.isNotEmpty &&
             !user.avatarUrl.startsWith('/'))
         ? user.avatarUrl
         : null;
@@ -88,7 +107,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           padding: const EdgeInsets.all(24.0),
           child: Column(
             children: [
-              // ── Avatar picker ──────────────────────────────────────────
               Center(
                 child: GestureDetector(
                   onTap: _pickAvatar,
@@ -100,25 +118,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               backgroundImage: FileImage(File(previewPath)),
                             )
                           : networkUrl != null
-                              ? CircleAvatar(
-                                  radius: 44,
-                                  backgroundImage: NetworkImage(networkUrl),
-                                )
-                              : CircleAvatar(
-                                  radius: 44,
-                                  backgroundColor:
-                                      AppColors.primary.withValues(alpha: 0.15),
-                                  child: Text(
-                                    user.name.isNotEmpty
-                                        ? user.name[0].toUpperCase()
-                                        : '?',
-                                    style: const TextStyle(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
+                          ? CircleAvatar(
+                              radius: 44,
+                              backgroundImage: NetworkImage(networkUrl),
+                            )
+                          : CircleAvatar(
+                              radius: 44,
+                              backgroundColor: Colors.blue.withOpacity(0.15),
+                              child: Text(
+                                user.name.isNotEmpty
+                                    ? user.name[0].toUpperCase()
+                                    : '?',
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.blue,
                                 ),
+                              ),
+                            ),
                       Positioned(
                         bottom: 0,
                         right: isArabic ? null : 0,
@@ -126,46 +143,51 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(6),
                           decoration: const BoxDecoration(
-                            color: AppColors.primary,
+                            color: Colors.blue,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.camera_alt,
-                              color: Colors.white, size: 14),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 14,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-              Center(
-                child: TextButton(
-                  onPressed: _pickAvatar,
-                  child: Text(
-                    _pendingAvatarPath != null
-                        ? (isArabic ? 'تغيير الصورة' : 'Change photo')
-                        : (isArabic
-                            ? 'تغيير صورة الملف الشخصي'
-                            : 'Change profile photo'),
-                  ),
+              const SizedBox(height: 20),
+              // عرض الـ Username كنص غير قابل للتعديل
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.alternate_email, color: Colors.grey),
+                    const SizedBox(width: 12),
+                    Text(
+                      user.id,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-              // ── Name field ─────────────────────────────────────────────
+              const SizedBox(height: 20),
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
                   labelText: isArabic ? 'الاسم الكامل' : 'Full Name',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // ── Email field ────────────────────────────────────────────
-              TextField(
-                controller: _emailController,
-                decoration: InputDecoration(
-                  labelText: isArabic ? 'البريد الإلكتروني' : 'Email Address',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -177,39 +199,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 height: 50,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: Colors.blue,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: () {
-                    // Save name + email
-                    data.updateUserInfo(
-                      _nameController.text,
-                      _emailController.text,
-                    );
-                    // Save avatar if a new one was picked
-                    if (_pendingAvatarPath != null) {
-                      data.updateUserAvatar(_pendingAvatarPath!);
-                    }
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          isArabic
-                              ? 'تم حفظ التعديلات بنجاح!'
-                              : 'Profile Updated Successfully!',
+                  onPressed: _isLoading ? null : _saveProfile,
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : Text(
+                          isArabic ? 'حفظ التعديلات' : 'Save Changes',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
                         ),
-                      ),
-                    );
-                    Navigator.pop(context);
-                  },
-                  child: Text(
-                    isArabic ? 'حفظ التعديلات' : 'Save Changes',
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
-                  ),
                 ),
               ),
-              const SizedBox(height: 20),
             ],
           ),
         ),

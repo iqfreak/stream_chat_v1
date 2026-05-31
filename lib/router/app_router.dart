@@ -38,6 +38,7 @@ GoRouter buildRouter(AppState appState) {
   return GoRouter(
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: false,
+    refreshListenable: appState,
     redirect: (context, state) {
       final isAuth = appState.isAuthenticated;
       final onSplash = state.matchedLocation == AppRoutes.splash;

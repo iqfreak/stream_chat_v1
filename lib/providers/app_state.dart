@@ -1,32 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppState extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.dark;
   bool _isAuthenticated = false;
   String _locale = 'en';
 
-  // 🛠️ الجديد: متغيرات لحفظ حالة أزرار الإشعارات
-  bool _pushNotificationsEnabled = true;
-  bool _mentionsEnabled = true;
-
   ThemeMode get themeMode => _themeMode;
   bool get isDark => _themeMode == ThemeMode.dark;
   bool get isAuthenticated => _isAuthenticated;
   String get locale => _locale;
 
-  // 🛠️ الجديد: Getters لقراءة حالة الأزرار
-  bool get pushNotificationsEnabled => _pushNotificationsEnabled;
-  bool get mentionsEnabled => _mentionsEnabled;
+  /// Loads persisted theme and locale. Call once at startup before runApp
+  /// finishes building, or in the splash screen.
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedTheme = prefs.getString('sc_theme_mode');
+    if (savedTheme == 'light') {
+      _themeMode = ThemeMode.light;
+    } else if (savedTheme == 'dark') {
+      _themeMode = ThemeMode.dark;
+    }
+    _locale = prefs.getString('sc_locale') ?? 'en';
+    notifyListeners();
+  }
+
+  Future<void> _persistTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'sc_theme_mode',
+      _themeMode == ThemeMode.dark ? 'dark' : 'light',
+    );
+  }
 
   void toggleTheme() {
-    _themeMode = _themeMode == ThemeMode.dark
-        ? ThemeMode.light
-        : ThemeMode.dark;
+    _themeMode =
+        _themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+    _persistTheme();
     notifyListeners();
   }
 
   void setTheme(ThemeMode mode) {
     _themeMode = mode;
+    _persistTheme();
     notifyListeners();
   }
 
@@ -43,17 +59,8 @@ class AppState extends ChangeNotifier {
   void setLocale(String locale) {
     _locale = locale;
     notifyListeners();
-  }
-
-  // 🛠️ الجديد: ميثود تحديث إشعارات التطبيق
-  void setPushNotifications(bool value) {
-    _pushNotificationsEnabled = value;
-    notifyListeners();
-  }
-
-  // 🛠️ الجديد: ميثود تحديث إشعارات الإشارات (Mentions)
-  void setMentions(bool value) {
-    _mentionsEnabled = value;
-    notifyListeners();
+    SharedPreferences.getInstance().then(
+      (prefs) => prefs.setString('sc_locale', locale),
+    );
   }
 }

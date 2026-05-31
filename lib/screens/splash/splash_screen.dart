@@ -1,5 +1,8 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../providers/app_state.dart';
+import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -28,9 +31,29 @@ class _SplashScreenState extends State<SplashScreen>
     );
     _ctrl.forward();
 
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) context.go('/login');
-    });
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    final appState = context.read<AppState>();
+    final service = context.read<StreamChatService>();
+
+    // Load persisted theme + locale.
+    await appState.load();
+
+    // Try to silently restore the previous session.
+    final restored = await service.tryRestoreSession();
+
+    // Keep the splash visible for a moment.
+    await Future.delayed(const Duration(milliseconds: 1200));
+    if (!mounted) return;
+
+    if (restored) {
+      appState.signIn();
+      context.go('/channels');
+    } else {
+      context.go('/login');
+    }
   }
 
   @override

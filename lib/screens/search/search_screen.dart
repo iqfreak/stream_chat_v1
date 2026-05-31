@@ -16,18 +16,43 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final _ctrl = TextEditingController();
   String _query = '';
+  String _typeFilter = 'all'; // all | text | image | video | file
   List<({AppMessage message, AppChannel channel})> _results = [];
   bool _searching = false;
+
+  static const _filters = [
+    ('all', 'All', Icons.all_inclusive),
+    ('text', 'Text', Icons.notes),
+    ('image', 'Photos', Icons.image),
+    ('video', 'Videos', Icons.videocam),
+    ('file', 'Files', Icons.insert_drive_file),
+  ];
+
+  bool get _mediaFilter =>
+      _typeFilter == 'image' || _typeFilter == 'video' || _typeFilter == 'file';
 
   @override
   void dispose() { _ctrl.dispose(); super.dispose(); }
 
   Future<void> _doSearch(String query) async {
-    setState(() { _query = query; _searching = query.isNotEmpty; });
-    if (query.isEmpty) { setState(() { _results = []; _searching = false; }); return; }
-    final results = await context.read<StreamChatService>().searchMessages(query);
+    setState(() => _query = query);
+    // Media filters can run with an empty query (browse all media).
+    final shouldSearch = query.isNotEmpty || _mediaFilter;
+    if (!shouldSearch) {
+      setState(() { _results = []; _searching = false; });
+      return;
+    }
+    setState(() => _searching = true);
+    final results = await context
+        .read<StreamChatService>()
+        .searchMessages(query, typeFilter: _typeFilter);
     if (!mounted) return;
     setState(() { _results = results; _searching = false; });
+  }
+
+  void _onFilterChanged(String filter) {
+    setState(() => _typeFilter = filter);
+    _doSearch(_query);
   }
 
   @override
@@ -55,8 +80,43 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
           ),
+          SizedBox(
+            height: 44,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _filters.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final f = _filters[i];
+                final selected = _typeFilter == f.$1;
+                return FilterChip(
+                  selected: selected,
+                  showCheckmark: false,
+                  avatar: Icon(
+                    f.$3,
+                    size: 16,
+                    color: selected ? Colors.white : AppColors.primary,
+                  ),
+                  label: Text(f.$2),
+                  labelStyle: TextStyle(
+                    color: selected
+                        ? Colors.white
+                        : (isDark ? Colors.white : Colors.black87),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                  backgroundColor:
+                      isDark ? AppColors.darkCard : const Color(0xFFF0F2F5),
+                  selectedColor: AppColors.primary,
+                  onSelected: (_) => _onFilterChanged(f.$1),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
           Expanded(
-            child: _query.isEmpty
+            child: (_query.isEmpty && !_mediaFilter)
                 ? _EmptyState(isDark: isDark)
                 : _searching
                     ? const Center(child: CircularProgressIndicator())
@@ -64,12 +124,12 @@ class _SearchScreenState extends State<SearchScreen> {
                         ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                             Icon(Icons.search_off, size: 64, color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary),
                             const SizedBox(height: 12),
-                            Text('No results for "$_query"', style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
+                            Text(_query.isEmpty ? 'No items found' : 'No results for "$_query"', style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
                           ]))
                         : ListView.separated(
                             physics: const AlwaysScrollableScrollPhysics(),
                             itemCount: _results.length,
-                            separatorBuilder: (_, __) => Divider(height: 0, indent: 72, color: isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB)),
+                            separatorBuilder: (_, _) => Divider(height: 0, indent: 72, color: isDark ? AppColors.darkDivider : const Color(0xFFE5E7EB)),
                             itemBuilder: (context, i) {
                               final msg = _results[i].message;
                               final ch = _results[i].channel;

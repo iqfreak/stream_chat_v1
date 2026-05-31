@@ -24,11 +24,27 @@ dependencies:
   uuid: ^4.5.3
   stream_chat_localizations: ^9.24.0
   file_picker: ^10.3.10
+  url_launcher: ^6.3.2
+  open_filex: ^4.5.0
+  dio: ^5.7.0
+  path_provider: ^2.1.5
+  firebase_core: ^3.13.1
+  firebase_messaging: ^15.2.5
+  flutter_local_notifications: ^18.0.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#005FFF"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  remove_alpha_ios: true
 
 flutter:
   uses-material-design: true

@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../providers/app_state.dart';
 import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
@@ -17,28 +16,12 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _pushNotificationsEnabled = true;
-  bool _mentionsEnabled = true;
   final _scrollController = ScrollController();
 
   @override
   void dispose() {
     _scrollController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    if (pickedFile != null && mounted) {
-      context.read<StreamChatService>().updateUserAvatar(pickedFile.path);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_tr('image_updated', context.read<AppState>().locale)),
-        ),
-      );
-    }
   }
 
   String _tr(String key, String lang) {
@@ -64,7 +47,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'help': 'Help & Support',
         'about': 'About',
         'sign_out': 'Sign Out',
-        'image_updated': 'Profile picture updated!',
       },
       'ar': {
         'settings_title': 'الإعدادات والملف الشخصي',
@@ -87,7 +69,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'help': 'المساعدة والدعم',
         'about': 'عن التطبيق',
         'sign_out': 'تسجيل الخروج',
-        'image_updated': 'تم تحديث صورة الملف الشخصي!',
       },
     };
     return dict[lang]?[key] ?? dict['en']![key]!;
@@ -124,41 +105,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             color: isDark ? AppColors.darkCard : const Color(0xFFF5F6FA),
             child: Column(
               children: [
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: Stack(
-                    children: [
-                      isLocalAvatar
-                          ? CircleAvatar(
-                              radius: 44,
-                              backgroundImage: FileImage(File(user.avatarUrl)),
-                            )
-                          : UserAvatar(
-                              name: user.name,
-                              avatarUrl: user.avatarUrl,
-                              size: 88,
-                              showOnline: true,
-                            ),
-                      Positioned(
-                        bottom: 0,
-                        right: lang == 'ar' ? null : 0,
-                        left: lang == 'ar' ? 0 : null,
-                        child: Container(
-                          padding: const EdgeInsets.all(7),
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.camera_alt,
-                            color: Colors.white,
-                            size: 14,
-                          ),
-                        ),
+                isLocalAvatar
+                    ? CircleAvatar(
+                        radius: 44,
+                        backgroundImage: FileImage(File(user.avatarUrl)),
+                      )
+                    : UserAvatar(
+                        name: user.name,
+                        avatarUrl: user.avatarUrl,
+                        size: 88,
+                        showOnline: true,
                       ),
-                    ],
-                  ),
-                ),
                 const SizedBox(height: 14),
                 Text(
                   user.name,
@@ -226,19 +183,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             label: _tr('push_notif', lang),
             subtitle: _tr('all_msgs', lang),
             trailing: Switch(
-              value: _pushNotificationsEnabled,
-              onChanged: (v) => setState(() => _pushNotificationsEnabled = v),
-              activeThumbColor: AppColors.primary,
-            ),
-          ),
-          _SettingsTile(
-            icon: Icons.alternate_email,
-            iconColor: AppColors.primary,
-            label: _tr('mentions', lang),
-            subtitle: _tr('notify_mentions', lang),
-            trailing: Switch(
-              value: _mentionsEnabled,
-              onChanged: (v) => setState(() => _mentionsEnabled = v),
+              value: data.pushNotificationsEnabled,
+              onChanged: (v) => data.setPushNotificationsEnabled(v),
               activeThumbColor: AppColors.primary,
             ),
           ),
@@ -252,13 +198,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             label: _tr('security', lang),
             subtitle: _tr('security_sub', lang),
             onTap: () => context.push('/security'),
-          ),
-          _SettingsTile(
-            icon: Icons.privacy_tip_outlined,
-            iconColor: const Color(0xFF72767E),
-            label: _tr('privacy', lang),
-            subtitle: _tr('privacy_sub', lang),
-            onTap: () => context.push('/privacy'),
           ),
           _SettingsTile(
             icon: Icons.help_outline,

@@ -456,10 +456,11 @@ class _CreateChannelScreenState extends State<CreateChannelScreen> {
                                 _selected.clear();
                                 _selected.add(user.id);
                               } else {
-                                if (selected)
+                                if (selected) {
                                   _selected.remove(user.id);
-                                else
+                                } else {
                                   _selected.add(user.id);
+                                }
                               }
                             });
                           },

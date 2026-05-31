@@ -25,6 +25,20 @@ class _ThreadScreenState extends State<ThreadScreen> {
   final _scrollCtrl = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    // Fetch the real replies (the channel state only holds placeholders).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<StreamChatService>().loadThread(
+          widget.channelId,
+          widget.messageId,
+        );
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
@@ -85,7 +99,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
       return Scaffold(appBar: AppBar(), body: const Center(child: Text('Message not found')));
     }
 
-    final replies = parent.threadReplies;
+    final replies = data.threadReplies(widget.messageId);
     final me = data.currentUser;
     final isMember = channel.memberIds.contains(me.id);
 

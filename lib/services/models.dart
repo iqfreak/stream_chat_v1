@@ -20,13 +20,14 @@ class AppUser {
 }
 
 class AppReaction {
-  final String emoji;
+  final String type; // Stream reaction type, e.g. 'like', 'love'
+  final String emoji; // Display emoji
   final List<String> userIds;
 
-  AppReaction({required this.emoji, required this.userIds});
+  AppReaction({required this.type, required this.emoji, required this.userIds});
 
   AppReaction copyWith({List<String>? userIds}) =>
-      AppReaction(emoji: emoji, userIds: userIds ?? this.userIds);
+      AppReaction(type: type, emoji: emoji, userIds: userIds ?? this.userIds);
 }
 
 class AppMessage {
@@ -56,16 +57,21 @@ class AppMessage {
     this.editedText,
   });
 
+  /// The actual typed text, with no attachment placeholders.
+  /// Use this to check whether the message truly has text content.
+  String get pureText => editedText ?? text;
+
   /// Returns the edited text if available, then the raw text.
-  /// If the message has no text but has image attachments, returns '📷 Photo'.
-  /// If there are other file attachments, returns '📎 File'.
+  /// If the message has no text but has attachments, returns a type emoji.
+  /// Used for chat-list previews — NOT for edit/copy visibility checks.
   String get displayText {
     final base = editedText ?? text;
     if (base.isNotEmpty) return base;
+    final hasVideo = attachments.any((a) => a.type == 'video');
+    if (hasVideo) return '🎥 Video';
     final hasImage = attachments.any((a) => a.type == 'image');
     if (hasImage) return '📷 Photo';
-    final hasFile = attachments.isNotEmpty;
-    if (hasFile) return '📎 File';
+    if (attachments.isNotEmpty) return '📎 File';
     return '';
   }
 }
@@ -115,6 +121,9 @@ class AppNotification {
   final DateTime createdAt;
   bool isRead;
 
+  /// True when the current user was @mentioned, false for a normal new message.
+  final bool isMention;
+
   AppNotification({
     required this.id,
     required this.fromUserId,
@@ -123,6 +132,6 @@ class AppNotification {
     required this.text,
     required this.createdAt,
     this.isRead = false,
+    this.isMention = false,
   });
 }
-

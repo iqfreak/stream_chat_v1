@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "129887855336",
+    "project_id": "mobile-581cb",
+    "storage_bucket": "mobile-581cb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:129887855336:android:2d32124db19bc738dc1f5d",
+        "android_client_info": {
+          "package_name": "com.aast.stream_chat_v1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDBdV2Zt1qu3WkDTBNWMPB4AsY7lE__Wno"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -15,7 +15,15 @@ class MessageActionSheet extends StatelessWidget {
     required this.channelId,
   });
 
-  static const _quickEmojis = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
+  // (display emoji, Stream reaction type)
+  static const _quickReactions = [
+    ('👍', 'like'),
+    ('❤️', 'love'),
+    ('😂', 'haha'),
+    ('😮', 'wow'),
+    ('😢', 'sad'),
+    ('🎉', 'tada'),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +31,12 @@ class MessageActionSheet extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMine = message.senderId == data.currentUser.id;
     final bgColor = isDark ? AppColors.darkSurface : Colors.white;
-    final hasText = message.displayText.isNotEmpty;
+    final hasText = message.pureText.isNotEmpty;
+    final hasAttachments = message.attachments.isNotEmpty;
+    // Copy: only for pure text (no attachments).
+    final showCopy = hasText && !hasAttachments;
+    // Edit: only when the message has real typed text, never for media-only.
+    final showEdit = isMine && hasText;
 
     return Container(
       decoration: BoxDecoration(
@@ -48,14 +61,16 @@ class MessageActionSheet extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: _quickEmojis.map((emoji) {
-                final alreadyReacted = message.reactions
-                    .any((r) =>
-                        r.emoji == emoji &&
-                        r.userIds.contains(data.currentUser.id));
+              children: _quickReactions.map((pair) {
+                final emoji = pair.$1;
+                final type = pair.$2;
+                final alreadyReacted = message.reactions.any(
+                  (r) =>
+                      r.type == type && r.userIds.contains(data.currentUser.id),
+                );
                 return GestureDetector(
                   onTap: () {
-                    data.toggleReaction(channelId, message.id, emoji);
+                    data.toggleReaction(channelId, message.id, type);
                     Navigator.pop(context);
                   },
                   child: AnimatedContainer(
@@ -65,8 +80,8 @@ class MessageActionSheet extends StatelessWidget {
                       color: alreadyReacted
                           ? AppColors.primary.withValues(alpha: 0.15)
                           : (isDark
-                              ? AppColors.darkCard
-                              : const Color(0xFFF5F6FA)),
+                                ? AppColors.darkCard
+                                : const Color(0xFFF5F6FA)),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: alreadyReacted
@@ -88,13 +103,11 @@ class MessageActionSheet extends StatelessWidget {
             color: AppColors.primary,
             onTap: () {
               Navigator.pop(context);
-              context.push(
-                '/channels/$channelId/chat/${message.id}/thread',
-              );
+              context.push('/channels/$channelId/chat/${message.id}/thread');
             },
           ),
-          // Copy — only shown when there is text to copy
-          if (hasText)
+          // Copy — only shown for pure text messages (no attachments)
+          if (showCopy)
             _ActionTile(
               icon: Icons.copy_outlined,
               label: 'Copy Text',
@@ -122,9 +135,7 @@ class MessageActionSheet extends StatelessWidget {
             },
           ),
           _ActionTile(
-            icon: message.isPinned
-                ? Icons.push_pin
-                : Icons.push_pin_outlined,
+            icon: message.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
             label: message.isPinned ? 'Unpin Message' : 'Pin Message',
             color: const Color(0xFFFF9500),
             onTap: () {
@@ -132,15 +143,15 @@ class MessageActionSheet extends StatelessWidget {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(message.isPinned
-                      ? 'Message unpinned'
-                      : 'Message pinned'),
+                  content: Text(
+                    message.isPinned ? 'Message unpinned' : 'Message pinned',
+                  ),
                   duration: const Duration(seconds: 2),
                 ),
               );
             },
           ),
-          if (isMine)
+          if (showEdit)
             _ActionTile(
               icon: Icons.edit_outlined,
               label: 'Edit Message',
@@ -168,9 +179,7 @@ class MessageActionSheet extends StatelessWidget {
 
   /// Shows a bottom sheet to pick a channel to forward the message to.
   void _showForwardSheet(BuildContext context, StreamChatService data) {
-    final channels = data.myChannels
-        .where((c) => c.id != channelId)
-        .toList();
+    final channels = data.myChannels.where((c) => c.id != channelId).toList();
 
     showModalBottomSheet(
       context: context,
@@ -186,8 +195,9 @@ class MessageActionSheet extends StatelessWidget {
           builder: (_, scrollCtrl) => Container(
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurface : Colors.white,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
             ),
             child: Column(
               children: [
@@ -205,8 +215,8 @@ class MessageActionSheet extends StatelessWidget {
                   child: Text(
                     'Forward to...',
                     style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 const Divider(height: 0),
@@ -225,31 +235,27 @@ class MessageActionSheet extends StatelessWidget {
                         final otherUser = ch.isGroup
                             ? null
                             : ch.memberIds
-                                .where((id) => id != data.currentUser.id)
-                                .map((id) => data.userById(id))
-                                .whereType<AppUser>()
-                                .firstOrNull;
+                                  .where((id) => id != data.currentUser.id)
+                                  .map((id) => data.userById(id))
+                                  .whereType<AppUser>()
+                                  .firstOrNull;
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundColor:
-                                AppColors.primary.withValues(alpha: 0.15),
+                            backgroundColor: AppColors.primary.withValues(
+                              alpha: 0.15,
+                            ),
                             child: Icon(
                               ch.isGroup ? Icons.group : Icons.person,
                               color: AppColors.primary,
                             ),
                           ),
                           title: Text(
-                            ch.isGroup
-                                ? ch.name
-                                : (otherUser?.name ?? ch.name),
+                            ch.isGroup ? ch.name : (otherUser?.name ?? ch.name),
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           onTap: () {
-                            // Forward: send the display text (and attachments)
-                            // as a new message in the target channel.
-                            final fwdText =
-                                '↪ ${message.displayText}';
-                            data.sendMessage(ch.id, fwdText);
+                            // Forward text AND attachments to the target.
+                            data.forwardMessage(channelId, ch.id, message);
                             Navigator.pop(ctx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -274,8 +280,9 @@ class MessageActionSheet extends StatelessWidget {
   }
 
   void _showEditDialog(BuildContext context, StreamChatService data) {
-    final ctrl =
-        TextEditingController(text: message.editedText ?? message.text);
+    final ctrl = TextEditingController(
+      text: message.editedText ?? message.text,
+    );
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -285,8 +292,7 @@ class MessageActionSheet extends StatelessWidget {
           autofocus: true,
           maxLines: 5,
           minLines: 1,
-          decoration:
-              const InputDecoration(hintText: 'Edit your message...'),
+          decoration: const InputDecoration(hintText: 'Edit your message...'),
         ),
         actions: [
           TextButton(
@@ -313,8 +319,7 @@ class MessageActionSheet extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete message?'),
-        content: const Text(
-            'This message will be removed for all members.'),
+        content: const Text('This message will be removed for all members.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

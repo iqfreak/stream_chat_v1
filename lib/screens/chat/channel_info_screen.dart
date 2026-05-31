@@ -46,7 +46,8 @@ class ChannelInfoScreen extends StatelessWidget {
       body: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).padding.bottom + 16),
+          bottom: MediaQuery.of(context).padding.bottom + 16,
+        ),
         children: [
           // Header
           Container(
@@ -66,8 +67,11 @@ class ChannelInfoScreen extends StatelessWidget {
                       ),
                       borderRadius: BorderRadius.circular(24),
                     ),
-                    child: const Icon(Icons.group,
-                        color: Colors.white, size: 40),
+                    child: const Icon(
+                      Icons.group,
+                      color: Colors.white,
+                      size: 40,
+                    ),
                   )
                 else ...[
                   UserAvatar(
@@ -95,10 +99,9 @@ class ChannelInfoScreen extends StatelessWidget {
                 const SizedBox(height: 14),
                 Text(
                   channel.name,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w800),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -142,7 +145,9 @@ class ChannelInfoScreen extends StatelessWidget {
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                     ),
                     onPressed: () =>
                         _showAddMemberSheet(context, data, channel),
@@ -151,51 +156,56 @@ class ChannelInfoScreen extends StatelessWidget {
             ),
           ),
 
-          ...members.map((user) => ListTile(
-                leading: UserAvatar(
-                  name: user.name,
-                  avatarUrl: user.avatarUrl,
-                  size: 44,
-                  showOnline: user.isOnline,
+          ...members.map(
+            (user) => ListTile(
+              leading: UserAvatar(
+                name: user.name,
+                avatarUrl: user.avatarUrl,
+                size: 44,
+                showOnline: user.isOnline,
+              ),
+              title: Text(
+                user.name,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                user.id == data.currentUser.id
+                    ? 'You · @${user.username}'
+                    : '@${user.username}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? AppColors.textDarkSecondary
+                      : AppColors.textLightSecondary,
                 ),
-                title: Text(
-                  user.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text(
-                  user.id == data.currentUser.id ? 'You · @${user.username}' : '@${user.username}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark
-                        ? AppColors.textDarkSecondary
-                        : AppColors.textLightSecondary,
-                  ),
-                ),
-                trailing: user.isOnline
-                    ? Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color:
-                              AppColors.online.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
+              ),
+              trailing: user.isOnline
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.online.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'Online',
+                        style: TextStyle(
+                          color: AppColors.online,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
                         ),
-                        child: const Text(
-                          'Online',
-                          style: TextStyle(
-                              color: AppColors.online,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600),
-                        ),
-                      )
-                    : null,
-              )),
+                      ),
+                    )
+                  : null,
+            ),
+          ),
 
           const SizedBox(height: 8),
 
           // Pinned messages
-          _SectionHeader(
-              title: 'Pinned Messages (${pinnedMessages.length})'),
+          _SectionHeader(title: 'Pinned Messages (${pinnedMessages.length})'),
           if (pinnedMessages.isEmpty)
             Padding(
               padding: const EdgeInsets.all(20),
@@ -214,8 +224,11 @@ class ChannelInfoScreen extends StatelessWidget {
             ...pinnedMessages.map((msg) {
               final sender = data.userById(msg.senderId);
               return ListTile(
-                leading: const Icon(Icons.push_pin,
-                    color: AppColors.primary, size: 20),
+                leading: const Icon(
+                  Icons.push_pin,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
                 title: Text(
                   msg.displayText,
                   maxLines: 2,
@@ -255,10 +268,13 @@ class ChannelInfoScreen extends StatelessWidget {
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: Text(
-                        channel.isGroup ? 'Leave Channel' : 'Delete Chat'),
-                    content: Text(channel.isGroup
-                        ? 'Are you sure you want to leave this channel?'
-                        : 'Are you sure you want to delete this chat?'),
+                      channel.isGroup ? 'Leave Channel' : 'Delete Chat',
+                    ),
+                    content: Text(
+                      channel.isGroup
+                          ? 'Are you sure you want to leave this channel?'
+                          : 'Are you sure you want to delete this chat?',
+                    ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
@@ -268,8 +284,7 @@ class ChannelInfoScreen extends StatelessWidget {
                         onPressed: () => Navigator.pop(ctx, true),
                         child: Text(
                           channel.isGroup ? 'Leave' : 'Delete',
-                          style:
-                              const TextStyle(color: AppColors.error),
+                          style: const TextStyle(color: AppColors.error),
                         ),
                       ),
                     ],
@@ -277,13 +292,9 @@ class ChannelInfoScreen extends StatelessWidget {
                 );
                 if (confirmed == true && context.mounted) {
                   if (channel.isGroup) {
-                    context
-                        .read<StreamChatService>()
-                        .leaveChannel(channelId);
+                    context.read<StreamChatService>().leaveChannel(channelId);
                   } else {
-                    context
-                        .read<StreamChatService>()
-                        .deleteChannel(channelId);
+                    context.read<StreamChatService>().deleteChannel(channelId);
                   }
                   context.go('/channels');
                 }
@@ -297,7 +308,10 @@ class ChannelInfoScreen extends StatelessWidget {
   }
 
   void _showRenameDialog(
-      BuildContext context, StreamChatService data, String currentName) {
+    BuildContext context,
+    StreamChatService data,
+    String currentName,
+  ) {
     final ctrl = TextEditingController(text: currentName);
     showDialog(
       context: context,
@@ -306,8 +320,7 @@ class ChannelInfoScreen extends StatelessWidget {
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          decoration:
-              const InputDecoration(hintText: 'Enter new group name'),
+          decoration: const InputDecoration(hintText: 'Enter new group name'),
         ),
         actions: [
           TextButton(
@@ -330,7 +343,10 @@ class ChannelInfoScreen extends StatelessWidget {
   }
 
   void _showAddMemberSheet(
-      BuildContext context, StreamChatService data, AppChannel channel) {
+    BuildContext context,
+    StreamChatService data,
+    AppChannel channel,
+  ) {
     final nonMembers = data.allUsers
         .where((u) => !channel.memberIds.contains(u.id))
         .toList();
@@ -355,8 +371,7 @@ class ChannelInfoScreen extends StatelessWidget {
               padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
               child: Text(
                 'Add Member',
-                style:
-                    TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ),
             const Divider(height: 0),
@@ -368,21 +383,27 @@ class ChannelInfoScreen extends StatelessWidget {
                   final user = nonMembers[i];
                   return ListTile(
                     leading: UserAvatar(
-                        name: user.name,
-                        avatarUrl: user.avatarUrl,
-                        size: 42),
-                    title: Text(user.name,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600)),
-                    subtitle: Text('@${user.username}',
-                        style: const TextStyle(fontSize: 12)),
+                      name: user.name,
+                      avatarUrl: user.avatarUrl,
+                      size: 42,
+                    ),
+                    title: Text(
+                      user.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      '@${user.username}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
                     onTap: () {
                       data.addMemberToChannel(channel.id, user.id);
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                            content: Text(
-                                '${user.name} added to ${channel.name}')),
+                          content: Text(
+                            '${user.name} added to ${channel.name}',
+                          ),
+                        ),
                       );
                     },
                   );

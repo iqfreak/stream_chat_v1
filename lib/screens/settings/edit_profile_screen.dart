@@ -124,7 +124,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             )
                           : CircleAvatar(
                               radius: 44,
-                              backgroundColor: Colors.blue.withOpacity(0.15),
+                              backgroundColor: Colors.blue.withValues(alpha: 0.15),
                               child: Text(
                                 user.name.isNotEmpty
                                     ? user.name[0].toUpperCase()
@@ -165,7 +165,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.1),
+                  color: Colors.grey.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(

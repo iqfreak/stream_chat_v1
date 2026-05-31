@@ -146,8 +146,10 @@ class _NotifTile extends StatelessWidget {
                         width: 2,
                       ),
                     ),
-                    child: const Icon(
-                      Icons.alternate_email,
+                    child: Icon(
+                      notification.isMention
+                          ? Icons.alternate_email
+                          : Icons.chat_bubble,
                       color: Colors.white,
                       size: 10,
                     ),
@@ -174,7 +176,11 @@ class _NotifTile extends StatelessWidget {
                           style: const TextStyle(
                               fontWeight: FontWeight.w700),
                         ),
-                        const TextSpan(text: ' mentioned you in '),
+                        TextSpan(
+                          text: notification.isMention
+                              ? ' mentioned you in '
+                              : ' messaged you in ',
+                        ),
                         TextSpan(
                           text: channelName,
                           style: const TextStyle(

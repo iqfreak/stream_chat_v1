@@ -33,38 +33,55 @@ class UserAvatar extends StatelessWidget {
       const Color(0xFFFF7A00),
       const Color(0xFFFF4B4B),
     ];
+    if (name.isEmpty) return colors[0];
     return colors[name.codeUnitAt(0) % colors.length];
-  }
-
-  /// Returns the correct [ImageProvider] for a given URL:
-  /// - Local file paths (start with '/') → [FileImage]
-  /// - Everything else → [NetworkImage]
-  ImageProvider? _imageProvider() {
-    if (avatarUrl == null || avatarUrl!.isEmpty) return null;
-    if (avatarUrl!.startsWith('/')) return FileImage(File(avatarUrl!));
-    return NetworkImage(avatarUrl!);
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = _imageProvider();
+    final hasImage = avatarUrl != null && avatarUrl!.isNotEmpty;
+    final isLocal = hasImage && avatarUrl!.startsWith('/');
+
+    Widget initials() => Container(
+          width: size,
+          height: size,
+          alignment: Alignment.center,
+          color: _avatarColor(),
+          child: Text(
+            _initials,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: size * 0.36,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        );
+
+    Widget avatarChild;
+    if (!hasImage) {
+      avatarChild = initials();
+    } else if (isLocal) {
+      avatarChild = Image.file(
+        File(avatarUrl!),
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => initials(),
+      );
+    } else {
+      avatarChild = Image.network(
+        avatarUrl!,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => initials(),
+      );
+    }
+
     return Stack(
       children: [
-        CircleAvatar(
-          radius: size / 2,
-          backgroundColor: _avatarColor(),
-          backgroundImage: provider,
-          onBackgroundImageError: provider != null ? (error, stack) {} : null,
-          child: provider == null
-              ? Text(
-                  _initials,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: size * 0.36,
-                    fontWeight: FontWeight.w700,
-                  ),
-                )
-              : null,
+        ClipOval(
+          child: SizedBox(width: size, height: size, child: avatarChild),
         ),
         if (showOnline)
           Positioned(

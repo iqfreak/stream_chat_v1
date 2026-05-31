@@ -1,16 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'providers/app_state.dart';
 import 'services/stream_chat_service.dart';
+import 'services/push_service.dart';
 import 'theme/app_theme.dart';
 import 'router/app_router.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:stream_chat_flutter/stream_chat_flutter.dart';
-// 👇 السطر ده هو اللي كان ناقص عشان الكلاس يتقري
 import 'package:stream_chat_localizations/stream_chat_localizations.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Firebase + push notifications. Wrapped so the app still runs if Firebase
+  // isn't configured on a given build (e.g. missing google-services.json).
+  try {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(
+      firebaseMessagingBackgroundHandler,
+    );
+    await PushService.instance.init();
+  } catch (e) {
+    debugPrint('Firebase/push init skipped: $e');
+  }
+
   runApp(
     MultiProvider(
       providers: [

@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart'; // 🛠️ تم التحديث و
 import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/user_avatar.dart';
+import '../../utils/attachment_actions.dart';
 import 'message_action_sheet.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -20,6 +21,12 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
+
+  // @mention autocomplete state
+  List<AppUser> _mentionCandidates = [];
+
+  // Message briefly highlighted after tapping the pinned banner.
+  String? _highlightedMessageId;
 
   @override
   void initState() {
@@ -38,6 +45,64 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  /// Returns the `@`-token currently being typed (without the `@`), or null.
+  String? _activeMentionQuery() {
+    final sel = _inputCtrl.selection;
+    if (!sel.isValid || sel.baseOffset < 0) return null;
+    final caret = sel.baseOffset;
+    final upToCaret = _inputCtrl.text.substring(0, caret);
+    final at = upToCaret.lastIndexOf('@');
+    if (at == -1) return null;
+    // Must be at start or preceded by whitespace, and contain no space after.
+    if (at > 0 && !RegExp(r'\s').hasMatch(upToCaret[at - 1])) return null;
+    final token = upToCaret.substring(at + 1);
+    if (token.contains(' ') || token.contains('\n')) return null;
+    return token;
+  }
+
+  void _onInputChanged(String _) {
+    final query = _activeMentionQuery();
+    if (query == null) {
+      if (_mentionCandidates.isNotEmpty) {
+        setState(() => _mentionCandidates = []);
+      }
+      return;
+    }
+    final data = context.read<StreamChatService>();
+    final channel = data.channelById(widget.channelId);
+    if (channel == null) return;
+    final members = channel.memberIds
+        .where((id) => id != data.currentUser.id)
+        .map((id) => data.userById(id))
+        .whereType<AppUser>()
+        .where(
+          (u) =>
+              query.isEmpty ||
+              u.name.toLowerCase().contains(query.toLowerCase()) ||
+              u.id.toLowerCase().contains(query.toLowerCase()),
+        )
+        .take(6)
+        .toList();
+    setState(() => _mentionCandidates = members);
+  }
+
+  void _insertMention(AppUser user) {
+    final caret = _inputCtrl.selection.baseOffset;
+    final text = _inputCtrl.text;
+    final upToCaret = text.substring(0, caret);
+    final at = upToCaret.lastIndexOf('@');
+    if (at == -1) return;
+    final before = text.substring(0, at);
+    final after = text.substring(caret);
+    final insert = '@${user.id} ';
+    final newText = '$before$insert$after';
+    _inputCtrl.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: (before + insert).length),
+    );
+    setState(() => _mentionCandidates = []);
+  }
+
   void _send() {
     final data = context.read<StreamChatService>();
     final channel = data.channelById(widget.channelId);
@@ -48,8 +113,19 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     final text = _inputCtrl.text.trim();
     if (text.isEmpty) return;
+
+    // Resolve @mentions against channel members.
+    final mentionedIds = <String>[];
+    for (final match in RegExp(r'@([a-z0-9_]+)').allMatches(text)) {
+      final handle = match.group(1);
+      if (handle != null && channel.memberIds.contains(handle)) {
+        mentionedIds.add(handle);
+      }
+    }
+
     _inputCtrl.clear();
-    data.sendMessage(widget.channelId, text);
+    setState(() => _mentionCandidates = []);
+    data.sendMessage(widget.channelId, text, mentionedUserIds: mentionedIds);
     Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
   }
 
@@ -134,6 +210,91 @@ class _ChatScreenState extends State<ChatScreen> {
       isScrollControlled: true,
       builder: (_) =>
           MessageActionSheet(message: msg, channelId: widget.channelId),
+    );
+  }
+
+  /// Scrolls the message list to a given message index and briefly highlights.
+  void _scrollToMessageId(String messageId) {
+    final data = context.read<StreamChatService>();
+    final channel = data.channelById(widget.channelId);
+    if (channel == null) return;
+    final index = channel.messages.indexWhere((m) => m.id == messageId);
+    if (index < 0) return;
+    if (!_scrollCtrl.hasClients) return;
+    // Approximate offset; each message is roughly 72px tall on average.
+    final max = _scrollCtrl.position.maxScrollExtent;
+    final target = (index * 72.0).clamp(0.0, max);
+    _scrollCtrl.animateTo(
+      target,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
+    setState(() => _highlightedMessageId = messageId);
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted) setState(() => _highlightedMessageId = null);
+    });
+  }
+
+  /// WhatsApp-style banner showing the most recent pinned message.
+  Widget _buildPinnedBanner(
+    BuildContext context,
+    AppChannel channel,
+    StreamChatService data,
+    bool isDark,
+  ) {
+    final pinned = channel.messages.where((m) => m.isPinned).toList();
+    if (pinned.isEmpty) return const SizedBox.shrink();
+    final latest = pinned.last;
+    final sender = data.userById(latest.senderId);
+    final preview = latest.displayText.isEmpty ? 'Message' : latest.displayText;
+
+    return InkWell(
+      onTap: () => _scrollToMessageId(latest.id),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkCard : const Color(0xFFF0F4FF),
+          border: const Border(
+            left: BorderSide(color: AppColors.primary, width: 3),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.push_pin, size: 16, color: AppColors.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    pinned.length > 1
+                        ? 'Pinned • ${pinned.length} messages'
+                        : 'Pinned message',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    '${sender?.name ?? ''}: $preview',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: isDark
+                          ? AppColors.textDark
+                          : AppColors.textLight,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -272,6 +433,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ],
               ),
             ),
+          _buildPinnedBanner(context, channel, data, isDark),
           Expanded(
             child: channel.messages.isEmpty
                 ? Center(
@@ -330,6 +492,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         showHeader: showHeader,
                         isDark: isDark,
                         channelId: widget.channelId,
+                        highlighted: _highlightedMessageId == msg.id,
                         onLongPress: () => _showActionSheet(msg),
                         onThreadTap: () => context.push(
                           '/channels/${widget.channelId}/chat/${msg.id}/thread',
@@ -398,58 +561,101 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       child: SafeArea(
         top: false,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              icon: Icon(
-                Icons.attach_file,
-                color: isDark
-                    ? AppColors.textDarkSecondary
-                    : AppColors.textLightSecondary,
+            if (_mentionCandidates.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                constraints: const BoxConstraints(maxHeight: 180),
+                decoration: BoxDecoration(
+                  color: isDark ? AppColors.darkCard : const Color(0xFFF0F2F5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: _mentionCandidates.length,
+                  itemBuilder: (_, i) {
+                    final u = _mentionCandidates[i];
+                    return ListTile(
+                      dense: true,
+                      leading: UserAvatar(
+                        name: u.name,
+                        avatarUrl: u.avatarUrl,
+                        size: 32,
+                      ),
+                      title: Text(
+                        u.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '@${u.username}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      onTap: () => _insertMention(u),
+                    );
+                  },
+                ),
               ),
-              onPressed: _attach,
-            ),
-            Expanded(
-              child: TextField(
-                controller: _inputCtrl,
-                maxLines: 6,
-                minLines: 1,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  hintText: 'Message...',
-                  filled: true,
-                  fillColor: isDark
-                      ? AppColors.darkCard
-                      : const Color(0xFFF0F2F5),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.attach_file,
+                    color: isDark
+                        ? AppColors.textDarkSecondary
+                        : AppColors.textLightSecondary,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
+                  onPressed: _attach,
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: _inputCtrl,
+                    maxLines: 6,
+                    minLines: 1,
+                    textCapitalization: TextCapitalization.sentences,
+                    onChanged: _onInputChanged,
+                    decoration: InputDecoration(
+                      hintText: 'Message...',
+                      filled: true,
+                      fillColor: isDark
+                          ? AppColors.darkCard
+                          : const Color(0xFFF0F2F5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                    ),
+                    onSubmitted: (_) => _send(),
                   ),
                 ),
-                onSubmitted: (_) => _send(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: _send,
-              child: Container(
-                width: 42,
-                height: 42,
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _send,
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.send_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
                 ),
-                child: const Icon(
-                  Icons.send_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
+              ],
             ),
           ],
         ),
@@ -467,6 +673,7 @@ class _MessageBubble extends StatelessWidget {
   final bool showHeader;
   final bool isDark;
   final String channelId;
+  final bool highlighted;
   final VoidCallback onLongPress;
   final VoidCallback onThreadTap;
 
@@ -477,6 +684,7 @@ class _MessageBubble extends StatelessWidget {
     required this.showHeader,
     required this.isDark,
     required this.channelId,
+    this.highlighted = false,
     required this.onLongPress,
     required this.onThreadTap,
   });
@@ -492,7 +700,14 @@ class _MessageBubble extends StatelessWidget {
         ? Colors.white
         : (isDark ? AppColors.textDark : AppColors.textLight);
 
-    return Padding(
+    return Container(
+      decoration: BoxDecoration(
+        color: highlighted
+            ? AppColors.primary.withValues(alpha: 0.12)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
       padding: EdgeInsets.only(top: showHeader ? 12 : 2, bottom: 2),
       child: Row(
         mainAxisAlignment: isMine
@@ -572,9 +787,12 @@ class _MessageBubble extends StatelessWidget {
                           textColor: textColor,
                         ),
                       ),
-                      if (message.displayText.isNotEmpty)
+                      // Show the real text only. `displayText` adds a
+                      // "📷 Photo"/"📎 File" placeholder that is meant for the
+                      // chat-list preview, not the bubble itself.
+                      if ((message.editedText ?? message.text).isNotEmpty)
                         Text(
-                          message.displayText,
+                          message.editedText ?? message.text,
                           style: TextStyle(
                             fontSize: 14,
                             color: textColor,
@@ -681,6 +899,7 @@ class _MessageBubble extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
@@ -708,34 +927,44 @@ class _FileAttachmentWidget extends StatelessWidget {
     IconData fileIcon = Icons.insert_drive_file;
     if (attachment.type == 'video') fileIcon = Icons.video_file;
     if (attachment.type == 'audio') fileIcon = Icons.audio_file;
-    if (attachment.name.toLowerCase().endsWith('.pdf'))
+    if (attachment.name.toLowerCase().endsWith('.pdf')) {
       fileIcon = Icons.picture_as_pdf;
+    }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(fileIcon, color: textColor, size: 28),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              attachment.name,
-              style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.underline,
+    return GestureDetector(
+      onTap: () =>
+          AttachmentActions.open(context, attachment.url, attachment.name),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(fileIcon, color: textColor, size: 28),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                attachment.name,
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => AttachmentActions.download(
+                  context, attachment.url, attachment.name),
+              child: Icon(Icons.download_rounded, color: textColor, size: 22),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -752,25 +981,74 @@ class _ImageAttachment extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLocal =
         attachment.url.startsWith('/') || attachment.url.startsWith('file://');
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: isLocal
-            ? Image.file(
-                File(attachment.url),
-                width: 220,
-                height: 180,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _BrokenImage(isDark: isDark),
-              )
-            : Image.network(
-                attachment.url,
-                width: 220,
-                height: 180,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _BrokenImage(isDark: isDark),
-              ),
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => _FullScreenImage(attachment: attachment),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: isLocal
+              ? Image.file(
+                  File(attachment.url),
+                  width: 220,
+                  height: 180,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _BrokenImage(isDark: isDark),
+                )
+              : Image.network(
+                  attachment.url,
+                  width: 220,
+                  height: 180,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _BrokenImage(isDark: isDark),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Full-screen image viewer ────────────────────────────────────────────────
+
+class _FullScreenImage extends StatelessWidget {
+  final AppAttachment attachment;
+  const _FullScreenImage({required this.attachment});
+
+  @override
+  Widget build(BuildContext context) {
+    final isLocal =
+        attachment.url.startsWith('/') || attachment.url.startsWith('file://');
+    final path =
+        attachment.url.startsWith('file://')
+            ? attachment.url.replaceFirst('file://', '')
+            : attachment.url;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: Text(attachment.name, overflow: TextOverflow.ellipsis),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download_rounded),
+            tooltip: 'Download',
+            onPressed: () => AttachmentActions.download(
+                context, attachment.url, attachment.name),
+          ),
+        ],
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 4,
+          child: isLocal
+              ? Image.file(File(path))
+              : Image.network(attachment.url),
+        ),
       ),
     );
   }
@@ -819,18 +1097,18 @@ class _ReactionsRow extends StatelessWidget {
       children: message.reactions.map((r) {
         final mine = r.userIds.contains(data.currentUser.id);
         return GestureDetector(
-          onTap: () => data.toggleReaction(channelId, message.id, r.emoji),
+          onTap: () => data.toggleReaction(channelId, message.id, r.type),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: mine
-                  ? AppColors.primary.withOpacity(0.2)
+                  ? AppColors.primary.withValues(alpha: 0.2)
                   : (isDark
                         ? AppColors.reactionBg
-                        : Colors.grey.withOpacity(0.15)),
+                        : Colors.grey.withValues(alpha: 0.15)),
               borderRadius: BorderRadius.circular(12),
               border: mine
-                  ? Border.all(color: AppColors.primary.withOpacity(0.5))
+                  ? Border.all(color: AppColors.primary.withValues(alpha: 0.5))
                   : null,
             ),
             child: Text(

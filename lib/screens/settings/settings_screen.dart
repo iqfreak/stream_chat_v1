@@ -41,7 +41,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'notify_mentions': 'Notify me on @mention',
         'account': 'Account',
         'security': 'Account & Security',
-        'security_sub': 'Password, 2FA',
+        'security_sub': 'Password, Email',
         'privacy': 'Privacy',
         'privacy_sub': 'Manage your data',
         'help': 'Help & Support',

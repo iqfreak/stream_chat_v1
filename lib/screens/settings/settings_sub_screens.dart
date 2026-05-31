@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../providers/app_state.dart';
 import '../../services/stream_chat_service.dart';
 import '../../widgets/user_avatar.dart';
+import '../../utils/app_strings.dart';
 
 // ======================= Account & Security =======================
 class SecurityScreen extends StatelessWidget {
@@ -14,13 +16,13 @@ class SecurityScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Account & Security')),
+      appBar: AppBar(title: Text(AppStrings.t(context, 'security'))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           ListTile(
             leading: const Icon(Icons.email_outlined),
-            title: const Text('Change Email'),
+            title: Text(AppStrings.t(context, 'change_email')),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () => Navigator.push(
               context,
@@ -30,7 +32,7 @@ class SecurityScreen extends StatelessWidget {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.lock_outline),
-            title: const Text('Change Password'),
+            title: Text(AppStrings.t(context, 'change_password')),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () => Navigator.push(
               context,

@@ -49,24 +49,31 @@ class _StreamChatAppState extends State<StreamChatApp> {
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     return MaterialApp.router(
-      title: 'Stream Chat V1',
+      title: 'Stream Chat',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: appState.themeMode,
       routerConfig: _router,
 
-      // ===== الأكواد المسؤولة عن تعميم اللغة =====
+      // ===== Localization + direction =====
       locale: Locale(appState.locale),
       supportedLocales: const [Locale('en'), Locale('ar')],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
-        GlobalStreamChatLocalizations
-            .delegate, // دلوقتي الكلاس ده هيتقري بدون أي خطأ
+        GlobalStreamChatLocalizations.delegate,
       ],
-      // ===========================================
+      // Force the whole app to lay out right-to-left when Arabic is selected.
+      builder: (context, child) {
+        return Directionality(
+          textDirection:
+              appState.locale == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+          child: child!,
+        );
+      },
+      // ====================================
     );
   }
 }

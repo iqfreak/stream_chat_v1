@@ -6,6 +6,7 @@ import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/bottom_nav_scaffold.dart';
 import '../../widgets/user_avatar.dart';
+import '../../utils/app_strings.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -21,11 +22,11 @@ class _SearchScreenState extends State<SearchScreen> {
   bool _searching = false;
 
   static const _filters = [
-    ('all', 'All', Icons.all_inclusive),
-    ('text', 'Text', Icons.notes),
-    ('image', 'Photos', Icons.image),
-    ('video', 'Videos', Icons.videocam),
-    ('file', 'Files', Icons.insert_drive_file),
+    ('all', 'filter_all', Icons.all_inclusive),
+    ('text', 'filter_text', Icons.notes),
+    ('image', 'filter_photos', Icons.image),
+    ('video', 'filter_videos', Icons.videocam),
+    ('file', 'filter_files', Icons.insert_drive_file),
   ];
 
   bool get _mediaFilter =>
@@ -62,7 +63,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
     return BottomNavScaffold(
       selectedIndex: 1,
-      appBar: AppBar(title: const Text('Search')),
+      appBar: AppBar(title: Text(AppStrings.t(context, 'search_title'))),
       body: Column(
         children: [
           Padding(
@@ -72,7 +73,7 @@ class _SearchScreenState extends State<SearchScreen> {
               autofocus: false,
               onChanged: _doSearch,
               decoration: InputDecoration(
-                hintText: 'Search messages...',
+                hintText: AppStrings.t(context, 'search_hint'),
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _query.isNotEmpty
                     ? IconButton(icon: const Icon(Icons.close), onPressed: () { _ctrl.clear(); _doSearch(''); })
@@ -98,7 +99,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     size: 16,
                     color: selected ? Colors.white : AppColors.primary,
                   ),
-                  label: Text(f.$2),
+                  label: Text(AppStrings.t(context, f.$2)),
                   labelStyle: TextStyle(
                     color: selected
                         ? Colors.white
@@ -124,7 +125,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
                             Icon(Icons.search_off, size: 64, color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary),
                             const SizedBox(height: 12),
-                            Text(_query.isEmpty ? 'No items found' : 'No results for "$_query"', style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
+                            Text(_query.isEmpty ? AppStrings.t(context, 'no_items') : AppStrings.t(context, 'no_results'), style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
                           ]))
                         : ListView.separated(
                             physics: const AlwaysScrollableScrollPhysics(),
@@ -190,7 +191,7 @@ class _EmptyState extends StatelessWidget {
     return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(Icons.search, size: 72, color: isDark ? AppColors.textDarkSecondary.withValues(alpha: 0.5) : AppColors.textLightSecondary.withValues(alpha: 0.4)),
       const SizedBox(height: 16),
-      Text('Search messages', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
+      Text(AppStrings.t(context, 'search_empty'), style: Theme.of(context).textTheme.titleMedium?.copyWith(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary)),
       const SizedBox(height: 6),
       Text('Type to search across all your chats', style: TextStyle(fontSize: 13, color: isDark ? AppColors.textDarkSecondary.withValues(alpha: 0.7) : AppColors.textLightSecondary.withValues(alpha: 0.7))),
     ]));

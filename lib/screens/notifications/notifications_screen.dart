@@ -6,6 +6,7 @@ import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/bottom_nav_scaffold.dart';
 import '../../widgets/user_avatar.dart';
+import '../../utils/app_strings.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
@@ -20,14 +21,14 @@ class NotificationsScreen extends StatelessWidget {
     return BottomNavScaffold(
       selectedIndex: 2,
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: Text(AppStrings.t(context, 'notifications_title')),
         actions: [
           if (unreadCount > 0)
             TextButton(
               onPressed: data.markAllNotificationsRead,
-              child: const Text(
-                'Mark all read',
-                style: TextStyle(
+              child: Text(
+                AppStrings.t(context, 'mark_all_read'),
+                style: const TextStyle(
                     color: AppColors.primary, fontWeight: FontWeight.w600),
               ),
             ),
@@ -45,7 +46,7 @@ class NotificationsScreen extends StatelessWidget {
                           : AppColors.textLightSecondary.withValues(alpha: 0.4)),
                   const SizedBox(height: 16),
                   Text(
-                    'No notifications yet',
+                    AppStrings.t(context, 'no_notifications'),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: isDark
                               ? AppColors.textDarkSecondary
@@ -178,8 +179,8 @@ class _NotifTile extends StatelessWidget {
                         ),
                         TextSpan(
                           text: notification.isMention
-                              ? ' mentioned you in '
-                              : ' messaged you in ',
+                              ? AppStrings.t(context, 'mentioned_you_in')
+                              : AppStrings.t(context, 'messaged_you_in'),
                         ),
                         TextSpan(
                           text: channelName,

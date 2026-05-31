@@ -9,6 +9,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/user_avatar.dart';
 import '../../utils/attachment_actions.dart';
 import 'message_action_sheet.dart';
+import '../../utils/app_strings.dart';
 
 class ChatScreen extends StatefulWidget {
   final String channelId;
@@ -18,7 +19,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _inputCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
@@ -31,15 +32,27 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<StreamChatService>().markChannelRead(widget.channelId);
+        _scrollToBottom();
       }
+    });
+  }
+
+  // Called when the keyboard opens/closes (the bottom inset changes).
+  // Scroll the latest messages into view so the keyboard never covers them.
+  @override
+  void didChangeMetrics() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToBottom();
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
@@ -270,7 +283,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   Text(
                     pinned.length > 1
                         ? 'Pinned • ${pinned.length} messages'
-                        : 'Pinned message',
+                        : AppStrings.t(context, 'pinned_message'),
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -421,7 +434,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'You are not a member of this group and cannot send messages.',
+                      AppStrings.t(context, 'not_member'),
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark
@@ -449,7 +462,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'No messages yet',
+                          AppStrings.t(context, 'no_messages'),
                           style: TextStyle(
                             color: isDark
                                 ? AppColors.textDarkSecondary
@@ -621,7 +634,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     textCapitalization: TextCapitalization.sentences,
                     onChanged: _onInputChanged,
                     decoration: InputDecoration(
-                      hintText: 'Message...',
+                      hintText: AppStrings.t(context, 'message_hint'),
                       filled: true,
                       fillColor: isDark
                           ? AppColors.darkCard

@@ -28,6 +28,10 @@ class StreamChatService extends ChangeNotifier {
   final List<AppNotification> _notifications = [];
   final Map<String, Channel> _streamChannels = {};
   final Map<String, AppUser> _cachedUsers = {};
+  // Local-only DM channels not yet created on the server (created on 1st send).
+  final Set<String> _draftChannels = {};
+  // Maps a draft channel id to its real server id once created.
+  final Map<String, String> _draftToReal = {};
   // Real, fetched thread replies keyed by parent message id.
   final Map<String, List<AppMessage>> _threadReplies = {};
   StreamSubscription<Event>? _eventSub;
@@ -75,8 +79,10 @@ class StreamChatService extends ChangeNotifier {
   AppUser? userById(String id) => _cachedUsers[id];
 
   AppChannel? channelById(String id) {
+    // If this was a draft that has since been created, follow to the real id.
+    final resolvedId = _draftToReal[id] ?? id;
     try {
-      return _channels.firstWhere((c) => c.id == id);
+      return _channels.firstWhere((c) => c.id == resolvedId);
     } catch (_) {
       return null;
     }
@@ -506,15 +512,35 @@ class StreamChatService extends ChangeNotifier {
     late Channel ch;
 
     if (!isGroup) {
-      // For 1-on-1 chats, reuse Stream's "distinct" channel: a channel with no
-      // explicit id, identified by its exact member set. Stream returns the
-      // SAME channel if one already exists for these two members, so we never
-      // create a duplicate DM.
-      final allMembers = {..._memberSetForDm(memberIds)}.toList();
+      // Distinct 1-on-1 channel: no id, members passed so Stream hashes them
+      // into a stable id (same two people -> same channel, no duplicates).
+      final allMembers = _memberSetForDm(memberIds);
       ch = _client.channel(
         'messaging',
-        extraData: {'is_group': false, 'members': allMembers},
+        extraData: {'members': allMembers, 'is_group': false},
       );
+      // IMPORTANT: do NOT watch() yet. watch() creates the channel on the
+      // server and makes an empty conversation appear for the other person
+      // before any message exists. We watch lazily on the first send.
+      final localId = 'draft_${allMembers.join('_')}';
+      _streamChannels[localId] = ch;
+      _draftChannels.add(localId);
+      // Add a local-only entry so the sender can open the chat screen.
+      _channels.removeWhere((c) => c.id == localId);
+      _channels.insert(
+        0,
+        AppChannel(
+          id: localId,
+          name: _dmNameFor(allMembers),
+          isGroup: false,
+          memberIds: allMembers,
+          messages: const [],
+          unreadCount: 0,
+        ),
+      );
+      _cacheMembers(ch);
+      notifyListeners();
+      return localId;
     } else {
       final id = 'grp_${const Uuid().v4().replaceAll('-', '')}';
       ch = _client.channel(
@@ -522,21 +548,17 @@ class StreamChatService extends ChangeNotifier {
         id: id,
         extraData: {'name': name, 'is_group': true},
       );
-    }
-
-    await ch.watch();
-
-    if (isGroup) {
+      // Groups are explicitly created, so watch immediately.
+      await ch.watch();
       await ch.addMembers(memberIds);
+      final channelId = ch.id!;
+      _streamChannels[channelId] = ch;
+      _channels.removeWhere((c) => c.id == channelId);
+      _channels.insert(0, _toAppChannel(ch));
+      _cacheMembers(ch);
+      notifyListeners();
+      return channelId;
     }
-
-    final channelId = ch.id!;
-    _streamChannels[channelId] = ch;
-    _channels.removeWhere((c) => c.id == channelId);
-    _channels.insert(0, _toAppChannel(ch));
-    _cacheMembers(ch);
-    notifyListeners();
-    return channelId;
   }
 
   /// Members for a DM: the selected user(s) plus the current user, de-duped.
@@ -544,6 +566,15 @@ class StreamChatService extends ChangeNotifier {
     final set = <String>{...memberIds};
     if (_currentUser != null) set.add(_currentUser!.id);
     return set.toList();
+  }
+
+  /// Display name for a DM = the other member's name.
+  String _dmNameFor(List<String> memberIds) {
+    final otherId = memberIds.firstWhere(
+      (id) => id != _currentUser?.id,
+      orElse: () => '',
+    );
+    return _cachedUsers[otherId]?.name ?? 'DM';
   }
 
   Future<void> deleteChannel(String channelId) async {
@@ -566,10 +597,19 @@ class StreamChatService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Resolves a possibly-draft channel id to its real server id.
+  String _resolveId(String id) => _draftToReal[id] ?? id;
+
   void markChannelRead(String channelId) {
-    final ch = _streamChannels[channelId];
+    final id = _resolveId(channelId);
+    final ch = _streamChannels[id];
     ch?.markRead();
-    final idx = _channels.indexWhere((c) => c.id == channelId);
+
+    // Requirement: reading a channel removes its notifications from the
+    // notifications screen.
+    _notifications.removeWhere((n) => n.channelId == id);
+
+    final idx = _channels.indexWhere((c) => c.id == id);
     if (idx >= 0) {
       final old = _channels[idx];
       _channels[idx] = AppChannel(
@@ -580,8 +620,8 @@ class StreamChatService extends ChangeNotifier {
         messages: old.messages,
         unreadCount: 0,
       );
-      notifyListeners();
     }
+    notifyListeners();
   }
 
   Future<void> addMemberToChannel(String channelId, String userId) async {
@@ -613,8 +653,27 @@ class StreamChatService extends ChangeNotifier {
     String text, {
     List<String> mentionedUserIds = const [],
   }) async {
-    final ch = _streamChannels[channelId];
+    // Follow draft -> real id for messages sent after the channel was created.
+    final resolvedId = _draftToReal[channelId] ?? channelId;
+    final ch = _streamChannels[resolvedId];
     if (ch == null) return;
+
+    // If this is a draft DM (not yet created on the server), create it now by
+    // watching it. This is the first message, so the channel becomes real and
+    // visible to the other person only at this moment.
+    if (_draftChannels.contains(resolvedId)) {
+      await ch.watch();
+      final realId = ch.id!;
+      _draftChannels.remove(resolvedId);
+      _streamChannels.remove(resolvedId);
+      _streamChannels[realId] = ch;
+      _draftToReal[channelId] = realId;
+      // Replace the local draft entry with the real channel.
+      _channels.removeWhere((c) => c.id == resolvedId || c.id == realId);
+      _channels.insert(0, _toAppChannel(ch));
+      _cacheMembers(ch);
+    }
+
     final mentioned = mentionedUserIds
         .map((id) => User(id: id))
         .toList(growable: false);
@@ -1111,7 +1170,50 @@ class StreamChatService extends ChangeNotifier {
     return null;
   }
 
-  // ─── Blocking / muting ──────────────────────────────────────────────────────
+  /// Deletes the current user's account after verifying their password.
+  /// Returns null on success or an error message.
+  Future<String?> deleteAccount(String password) async {
+    if (_currentUser == null) return 'Not signed in';
+    final userId = _currentUser!.id;
+
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('sc_users') ?? '[]';
+    final users = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+
+    // Verify password against the stored hash.
+    final hash = _hashPassword(password);
+    Map<String, dynamic>? record;
+    for (final u in users) {
+      if (u['id'] == userId) {
+        record = u;
+        break;
+      }
+    }
+    if (record == null) return 'Account not found';
+    if (record['password_hash'] != hash) return 'wrong_password';
+
+    // Best-effort: remove the device + delete the user on Stream.
+    try {
+      await _unregisterPushDevice();
+    } catch (_) {}
+    try {
+      await _client.disconnectUser();
+    } catch (_) {}
+
+    // Remove the local account record and clear session.
+    users.removeWhere((u) => u['id'] == userId);
+    await prefs.setString('sc_users', jsonEncode(users));
+    await prefs.remove('sc_current_user_id');
+
+    _currentUser = null;
+    _channels.clear();
+    _streamChannels.clear();
+    _notifications.clear();
+    _cachedUsers.clear();
+    _threadReplies.clear();
+    notifyListeners();
+    return null;
+  }
 
   /// Mutes a user on Stream (their messages are hidden from you).
   Future<void> blockUser(String userId) async {

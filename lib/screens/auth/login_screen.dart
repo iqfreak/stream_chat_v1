@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/app_state.dart';
 import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/app_strings.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -82,14 +83,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 28),
-                      Center(child: Text('Welcome back', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800))),
+                      Center(child: Text(AppStrings.t(context, 'login_title'), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800))),
                       const SizedBox(height: 6),
-                      Center(child: Text('Sign in to continue', style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary))),
+                      Center(child: Text(AppStrings.t(context, 'login_sub'), style: TextStyle(color: isDark ? AppColors.textDarkSecondary : AppColors.textLightSecondary))),
                       const SizedBox(height: 36),
                       TextFormField(
                         controller: _emailCtrl,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(labelText: 'Email address', prefixIcon: Icon(Icons.email_outlined)),
+                        decoration: InputDecoration(labelText: AppStrings.t(context, 'email'), prefixIcon: const Icon(Icons.email_outlined)),
                         validator: (v) { if (v == null || v.isEmpty) return 'Enter your email'; if (!v.contains('@')) return 'Enter a valid email'; return null; },
                       ),
                       const SizedBox(height: 16),
@@ -97,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _passCtrl,
                         obscureText: _obscure,
                         decoration: InputDecoration(
-                          labelText: 'Password',
+                          labelText: AppStrings.t(context, 'password'),
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
                             icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
@@ -115,7 +116,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: _loading ? null : _login,
                         child: _loading
                             ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Text('Sign In'),
+                            : Text(AppStrings.t(context, 'login')),
                       ),
                       const SizedBox(height: 20),
                       Row(
@@ -125,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextButton(
                             onPressed: () => context.go('/register'),
                             style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                            child: const Text('Register'),
+                            child: Text(AppStrings.t(context, 'register')),
                           ),
                         ],
                       ),

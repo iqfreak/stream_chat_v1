@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../providers/app_state.dart';
 import '../../services/stream_chat_service.dart';
 import '../../widgets/user_avatar.dart';
+import '../../utils/app_strings.dart';
 
 // ======================= Account & Security =======================
 class SecurityScreen extends StatelessWidget {
@@ -14,13 +16,13 @@ class SecurityScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Account & Security')),
+      appBar: AppBar(title: Text(AppStrings.t(context, 'security'))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           ListTile(
             leading: const Icon(Icons.email_outlined),
-            title: const Text('Change Email'),
+            title: Text(AppStrings.t(context, 'change_email')),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () => Navigator.push(
               context,
@@ -30,14 +32,141 @@ class SecurityScreen extends StatelessWidget {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.lock_outline),
-            title: const Text('Change Password'),
+            title: Text(AppStrings.t(context, 'change_password')),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
             ),
           ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.delete_forever, color: AppColors.error),
+            title: Text(
+              AppStrings.t(context, 'delete_account'),
+              style: const TextStyle(color: AppColors.error),
+            ),
+            subtitle: Text(AppStrings.t(context, 'delete_account_sub')),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DeleteAccountScreen()),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class DeleteAccountScreen extends StatefulWidget {
+  const DeleteAccountScreen({super.key});
+  @override
+  State<DeleteAccountScreen> createState() => _DeleteAccountScreenState();
+}
+
+class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
+  final _passwordController = TextEditingController();
+  bool _deleting = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirmDelete() async {
+    if (_passwordController.text.isEmpty) {
+      setState(() => _error = AppStrings.t(context, 'enter_password_confirm'));
+      return;
+    }
+    setState(() {
+      _deleting = true;
+      _error = null;
+    });
+    final result = await context
+        .read<StreamChatService>()
+        .deleteAccount(_passwordController.text);
+    if (!mounted) return;
+
+    if (result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.t(context, 'account_deleted'))),
+      );
+      context.go('/login');
+    } else {
+      setState(() {
+        _deleting = false;
+        _error = result == 'wrong_password'
+            ? AppStrings.t(context, 'wrong_password')
+            : result;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(AppStrings.t(context, 'delete_account'))),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: AppColors.error),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      AppStrings.t(context, 'delete_account_warning'),
+                      style: const TextStyle(
+                          color: AppColors.error, height: 1.4, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: AppStrings.t(context, 'enter_password_confirm'),
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.lock_outline),
+                errorText: _error,
+              ),
+            ),
+            const SizedBox(height: 28),
+            SizedBox(
+              height: 50,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: _deleting ? null : _confirmDelete,
+                child: _deleting
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(AppStrings.t(context, 'delete_my_account')),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

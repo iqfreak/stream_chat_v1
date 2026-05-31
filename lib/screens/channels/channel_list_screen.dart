@@ -6,6 +6,7 @@ import '../../services/stream_chat_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/bottom_nav_scaffold.dart';
 import '../../widgets/user_avatar.dart';
+import '../../utils/app_strings.dart';
 
 class ChannelListScreen extends StatelessWidget {
   const ChannelListScreen({super.key});
@@ -19,14 +20,14 @@ class ChannelListScreen extends StatelessWidget {
     return BottomNavScaffold(
       selectedIndex: 0,
       appBar: AppBar(
-        title: const Text('StreamChat'),
+        title: Text(AppStrings.t(context, 'channels_title')),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/channels/create'),
         child: const Icon(Icons.add),
       ),
       body: channels.isEmpty
-          ? const Center(child: Text('No chats yet. Tap + to start one.'))
+          ? Center(child: Text(AppStrings.t(context, 'no_chats')))
           : ListView.separated(
               itemCount: channels.length,
               separatorBuilder: (context, index) => Divider(
@@ -43,7 +44,7 @@ class ChannelListScreen extends StatelessWidget {
                 // Build preview text — prefix with sender name in groups
                 String preview;
                 if (last == null) {
-                  preview = 'No messages yet';
+                  preview = AppStrings.t(context, 'no_messages');
                 } else if (last.isDeleted) {
                   preview = 'Message deleted';
                 } else {
@@ -51,7 +52,7 @@ class ChannelListScreen extends StatelessWidget {
                   if (ch.isGroup) {
                     final sender = data.userById(last.senderId);
                     final senderName = last.senderId == data.currentUser.id
-                        ? 'You'
+                        ? AppStrings.t(context, 'you')
                         : (sender?.name.split(' ').first ?? 'Unknown');
                     preview = '$senderName: $text';
                   } else {

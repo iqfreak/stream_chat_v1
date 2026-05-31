@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../services/stream_chat_service.dart';
+import '../utils/app_strings.dart';
 
 class BottomNavScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
@@ -44,15 +45,15 @@ class BottomNavScaffold extends StatelessWidget {
         selectedIndex: selectedIndex,
         onDestinationSelected: (i) => _onTap(context, i),
         destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: 'Chats',
+          NavigationDestination(
+            icon: const Icon(Icons.chat_bubble_outline),
+            selectedIcon: const Icon(Icons.chat_bubble),
+            label: AppStrings.t(context, 'nav_chats'),
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.search),
-            selectedIcon: Icon(Icons.search),
-            label: 'Search',
+          NavigationDestination(
+            icon: const Icon(Icons.search),
+            selectedIcon: const Icon(Icons.search),
+            label: AppStrings.t(context, 'nav_search'),
           ),
           NavigationDestination(
             icon: Badge(
@@ -65,12 +66,12 @@ class BottomNavScaffold extends StatelessWidget {
               label: Text('$unread'),
               child: const Icon(Icons.notifications),
             ),
-            label: 'Notifications',
+            label: AppStrings.t(context, 'nav_notifications'),
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Settings',
+          NavigationDestination(
+            icon: const Icon(Icons.person_outline),
+            selectedIcon: const Icon(Icons.person),
+            label: AppStrings.t(context, 'nav_settings'),
           ),
         ],
       ),
